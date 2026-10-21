@@ -166,7 +166,7 @@ public class MainActivity extends Activity {
         header.addView(titleBox, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
         pixelCatView = new PixelCatView(this);
-        header.addView(pixelCatView, new LinearLayout.LayoutParams(dp(44), dp(36)));
+        header.addView(pixelCatView, new LinearLayout.LayoutParams(dp(48), dp(36)));
         
         root.addView(header, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(40)));
 
@@ -698,14 +698,14 @@ public class MainActivity extends Activity {
         Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
     }
 
+    // Точная пиксельная копия Муси (в стиле Pusheen) с анимированным подмигиванием
     public static class PixelCatView extends View {
         private boolean winking = false;
-        private Paint catPaint;
+        private Paint p = new Paint();
 
         public PixelCatView(Context context) {
             super(context);
-            catPaint = new Paint();
-            catPaint.setAntiAlias(false);
+            p.setAntiAlias(false);
         }
 
         public void toggleAnimationState() {
@@ -716,44 +716,66 @@ public class MainActivity extends Activity {
         @Override
         protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
-            float w = getWidth();
-            float h = getHeight();
+            float width = getWidth();
+            float height = getHeight();
+            float ps = Math.min(width / 26f, height / 18f); // Размер пиксельного блока
 
-            catPaint.setStyle(Paint.Style.FILL);
-            catPaint.setColor(Color.parseColor("#FFEbee"));
-            canvas.drawRoundRect(0, 0, w, h, dp(8), dp(8), catPaint);
+            canvas.save();
+            canvas.translate((width - ps * 26f) / 2f, (height - ps * 18f) / 2f);
 
-            catPaint.setColor(Color.parseColor("#F48FB1"));
-            catPaint.setStyle(Paint.Style.STROKE);
-            catPaint.setStrokeWidth(2f);
-            canvas.drawRoundRect(0, 0, w, h, dp(8), dp(8), catPaint);
+            // Обводка и контур Муси (темно-серый/черный)
+            p.setStyle(Paint.Style.FILL);
+            p.setColor(Color.parseColor("#374151"));
 
-            float cx = w / 2f;
-            float cy = h / 2f + 2f;
+            // Ушки
+            canvas.drawRect(3 * ps, 2 * ps, 6 * ps, 7 * ps, p);
+            canvas.drawRect(18 * ps, 2 * ps, 21 * ps, 7 * ps, p);
 
-            catPaint.setStyle(Paint.Style.FILL);
-            catPaint.setColor(Color.parseColor("#E91E63"));
-            canvas.drawRect(cx - 12f, cy - 10f, cx - 6f, cy - 4f, catPaint);
-            canvas.drawRect(cx + 6f, cy - 10f, cx + 12f, cy - 4f, catPaint);
+            // Основное тело
+            canvas.drawRect(2 * ps, 6 * ps, 23 * ps, 15 * ps, p);
+            // Хвостик справа
+            canvas.drawRect(22 * ps, 7 * ps, 25 * ps, 13 * ps, p);
+            // Лапки снизу
+            canvas.drawRect(4 * ps, 14 * ps, 7 * ps, 17 * ps, p);
+            canvas.drawRect(9 * ps, 14 * ps, 12 * ps, 17 * ps, p);
+            canvas.drawRect(14 * ps, 14 * ps, 17 * ps, 17 * ps, p);
+            canvas.drawRect(19 * ps, 14 * ps, 22 * ps, 17 * ps, p);
 
-            canvas.drawRect(cx - 10f, cy - 6f, cx + 10f, cy + 8f, catPaint);
+            // Заливка тела (светло-серый цвет Муси)
+            p.setColor(Color.parseColor("#E0E0E0"));
+            canvas.drawRect(4 * ps, 3 * ps, 6 * ps, 6 * ps, p);
+            canvas.drawRect(19 * ps, 3 * ps, 21 * ps, 6 * ps, p);
+            canvas.drawRect(3 * ps, 7 * ps, 22 * ps, 14 * ps, p);
+            canvas.drawRect(23 * ps, 8 * ps, 24 * ps, 12 * ps, p);
 
-            catPaint.setColor(Color.WHITE);
+            // Полоски на спине и хвосте
+            p.setColor(Color.parseColor("#B0BEC5"));
+            canvas.drawRect(9 * ps, 7 * ps, 11 * ps, 9 * ps, p);
+            canvas.drawRect(15 * ps, 7 * ps, 17 * ps, 9 * ps, p);
+            canvas.drawRect(23 * ps, 9 * ps, 24 * ps, 10 * ps, p);
+
+            // Мордочка и глазки
+            p.setColor(Color.parseColor("#212121"));
+            // Левый глаз
+            canvas.drawRect(6 * ps, 9 * ps, 8 * ps, 11 * ps, p);
+            // Носик и ротик
+            canvas.drawRect(11 * ps, 10 * ps, 13 * ps, 12 * ps, p);
+            
+            // Правый глаз (или подмигивание)
             if (!winking) {
-                canvas.drawRect(cx - 6f, cy - 3f, cx - 3f, cy, catPaint);
-                canvas.drawRect(cx + 3f, cy - 3f, cx + 6f, cy, catPaint);
+                canvas.drawRect(16 * ps, 9 * ps, 18 * ps, 11 * ps, p);
             } else {
-                canvas.drawRect(cx - 6f, cy - 3f, cx - 3f, cy, catPaint);
-                catPaint.setStrokeWidth(1.5f);
-                canvas.drawLine(cx + 3f, cy - 1f, cx + 6f, cy - 1f, catPaint);
+                // Подмигивающая линия
+                p.setStrokeWidth(ps * 1.2f);
+                canvas.drawLine(16 * ps, 10 * ps, 19 * ps, 10 * ps, p);
             }
 
-            catPaint.setColor(Color.parseColor("#FFC8DD"));
-            canvas.drawRect(cx - 1f, cy + 1f, cx + 1f, cy + 3f, catPaint);
-        }
+            // Розовые щечки
+            p.setColor(Color.parseColor("#FF80AB"));
+            canvas.drawRect(4 * ps, 11 * ps, 6 * ps, 13 * ps, p);
+            canvas.drawRect(18 * ps, 11 * ps, 20 * ps, 13 * ps, p);
 
-        private int dp(float val) {
-            return (int) (val * getResources().getDisplayMetrics().density + 0.5f);
+            canvas.restore();
         }
     }
 
