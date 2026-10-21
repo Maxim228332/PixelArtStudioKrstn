@@ -73,11 +73,32 @@ public class MainActivity extends Activity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        getWindow().setStatusBarColor(Color.parseColor("#F8BBD0"));
-        getWindow().setNavigationBarColor(Color.parseColor("#F8BBD0"));
+        
+        // Включаем полноэкранный режим (скрываем системные панели)
+        hideSystemUI();
+
         seedPalette();
         Arrays.fill(pixels, Color.WHITE);
         buildUi();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            hideSystemUI(); // Возвращаем полноэкранный режим при возвращении в приложение
+        }
+    }
+
+    private void hideSystemUI() {
+        View decorView = getWindow().getDecorView();
+        decorView.setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                | View.SYSTEM_UI_FLAG_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
     }
 
     private int dp(float value) {
@@ -99,7 +120,7 @@ public class MainActivity extends Activity {
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Color.parseColor("#FFF0F5"));
-        root.setPadding(dp(10), dp(6), dp(10), dp(6));
+        root.setPadding(dp(8), dp(4), dp(8), dp(4));
 
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
@@ -107,22 +128,22 @@ public class MainActivity extends Activity {
         TextView title = new TextView(this);
         title.setText("PIXEL ART STUDIO");
         title.setTextColor(Color.parseColor("#880E4F"));
-        title.setTextSize(18);
+        title.setTextSize(17);
         title.setTypeface(null, android.graphics.Typeface.BOLD);
         header.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         
         TextView sizeLabelHeader = new TextView(this);
         sizeLabelHeader.setText(gridSize + "×" + gridSize);
         sizeLabelHeader.setTextColor(Color.parseColor("#C2185B"));
-        sizeLabelHeader.setTextSize(12);
-        sizeLabelHeader.setPadding(dp(8), dp(4), dp(8), dp(4));
-        sizeLabelHeader.setBackground(roundBackground(0xFFFFEBEE, 0xFFF8BBD0, dp(8)));
+        sizeLabelHeader.setTextSize(11);
+        sizeLabelHeader.setPadding(dp(6), dp(3), dp(6), dp(3));
+        sizeLabelHeader.setBackground(roundBackground(0xFFFFEBEE, 0xFFF8BBD0, dp(6)));
         header.addView(sizeLabelHeader);
-        root.addView(header, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(34)));
+        root.addView(header, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(30)));
 
         statusLabel = new TextView(this);
         statusLabel.setTextColor(Color.parseColor("#AD1457"));
-        statusLabel.setTextSize(11);
+        statusLabel.setTextSize(10);
         statusLabel.setMaxLines(1);
         statusLabel.setPadding(0, 0, 0, dp(2));
         refreshStatus();
@@ -135,7 +156,7 @@ public class MainActivity extends Activity {
         paletteRow.setGravity(Gravity.CENTER_VERTICAL);
         paletteRow.setPadding(dp(2), dp(2), dp(2), dp(2));
         paletteScroll.addView(paletteRow);
-        root.addView(paletteScroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)));
+        root.addView(paletteScroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(44)));
 
         LinearLayout colorActions = new LinearLayout(this);
         colorActions.setOrientation(LinearLayout.HORIZONTAL);
@@ -157,36 +178,40 @@ public class MainActivity extends Activity {
 
         LinearLayout sizeControlBar = new LinearLayout(this);
         sizeControlBar.setOrientation(LinearLayout.HORIZONTAL);
-        addChipTo(sizeControlBar, "📐 Размер сетки: " + gridSize + "×" + gridSize, () -> chooseGridSize(), true);
+        addChipTo(sizeControlBar, "📐 Размер: " + gridSize + "×" + gridSize, () -> chooseGridSize(), true);
         root.addView(horizontal(sizeControlBar));
 
-        LinearLayout creativeActions = new LinearLayout(this);
-        creativeActions.setOrientation(LinearLayout.HORIZONTAL);
-        addChipTo(creativeActions, "✦ ИИ", () -> showAiDialog(), true);
-        addChipTo(creativeActions, "№ Раскраска", () -> convertToNumberColoring(), false);
-        addChipTo(creativeActions, numberMode ? "Обычный" : "Лист", () -> {
+        LinearLayout extraBar = new LinearLayout(this);
+        extraBar.setOrientation(LinearLayout.HORIZONTAL);
+        addChipTo(extraBar, "✦ ИИ", () -> showAiDialog(), true);
+        addChipTo(extraBar, "№ Раскраска", () -> convertToNumberColoring(), false);
+        addChipTo(extraBar, numberMode ? "Обычный" : "Лист", () -> {
             if (numberMode) leaveNumberColoring(); else createBlankCanvas();
         }, false);
-        root.addView(horizontal(creativeActions));
-
-        LinearLayout actions = new LinearLayout(this);
-        actions.setOrientation(LinearLayout.HORIZONTAL);
-        actions.setGravity(Gravity.CENTER_VERTICAL);
-        addChipTo(actions, "📂 Откр.", () -> openReference(), false);
-        addChipTo(actions, "💾 PNG", () -> savePng(), false);
+        addChipTo(extraBar, "📂 Откр.", () -> openReference(), false);
+        addChipTo(extraBar, "💾 PNG", () -> savePng(), false);
         referenceButton = makeChip("👁 Реф.", () -> toggleReference(), showReference);
-        actions.addView(referenceButton, chipParams());
-        addChipTo(actions, "🔳 Сетка", () -> toggleGrid(), showGrid);
-        root.addView(horizontal(actions));
+        extraBar.addView(referenceButton, chipParams());
+        addChipTo(extraBar, "🔳 Сетка", () -> toggleGrid(), showGrid);
+        root.addView(horizontal(extraBar));
 
         LinearLayout history = new LinearLayout(this);
         history.setOrientation(LinearLayout.HORIZONTAL);
+        history.setGravity(Gravity.BOTTOM);
         addChipTo(history, "↶ Отмена", () -> undo(), false);
         addChipTo(history, "↷ Повтор", () -> redo(), false);
         addChipTo(history, "🗑 Очистить", () -> confirmClear(), false);
         root.addView(horizontal(history));
 
         setContentView(root);
+
+        root.setOnApplyWindowInsetsListener((view, insets) -> {
+            int topInset = insets.getSystemWindowInsetTop();
+            int bottomInset = insets.getSystemWindowInsetBottom();
+            view.setPadding(dp(8), dp(4) + topInset, dp(8), dp(4) + bottomInset);
+            return insets;
+        });
+
         refreshPalette();
         refreshColorButton();
     }
@@ -210,7 +235,7 @@ public class MainActivity extends Activity {
     }
 
     private LinearLayout.LayoutParams chipParams() {
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(32));
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(30));
         p.rightMargin = dp(4);
         p.bottomMargin = dp(2);
         return p;
@@ -222,10 +247,10 @@ public class MainActivity extends Activity {
         chip.setTextColor(active ? Color.WHITE : Color.parseColor("#880E4F"));
         chip.setTextSize(11);
         chip.setGravity(Gravity.CENTER);
-        chip.setPadding(dp(10), dp(4), dp(10), dp(4));
-        chip.setMinWidth(dp(44));
+        chip.setPadding(dp(8), dp(3), dp(8), dp(3));
+        chip.setMinWidth(dp(40));
         chip.setBackground(roundBackground(active ? 0xFFE91E63 : 0xFFFFEBEE,
-                active ? 0xFFAD1457 : 0xFFF48FB1, dp(8)));
+                active ? 0xFFAD1457 : 0xFFF48FB1, dp(6)));
         chip.setOnClickListener(v -> action.run());
         return chip;
     }
@@ -267,7 +292,7 @@ public class MainActivity extends Activity {
     private void refreshColorButton() {
         if (selectedColorView == null) return;
         selectedColorView.setText("🎨 " + String.format(Locale.US, "#%06X", currentColor & 0xFFFFFF));
-        selectedColorView.setBackground(roundBackground(0xFFFFEBEE, currentColor, dp(8)));
+        selectedColorView.setBackground(roundBackground(0xFFFFEBEE, currentColor, dp(6)));
     }
 
     private void refreshPalette() {
@@ -280,13 +305,13 @@ public class MainActivity extends Activity {
                 TextView swatch = new TextView(this);
                 swatch.setText(String.valueOf(num));
                 swatch.setTextColor(contrastColor(color));
-                swatch.setTextSize(12);
+                swatch.setTextSize(11);
                 swatch.setTypeface(null, android.graphics.Typeface.BOLD);
                 swatch.setGravity(Gravity.CENTER);
                 boolean isActive = (currentColor == color);
                 swatch.setBackground(roundBackground(color, isActive ? 0xFFE91E63 : 0xFFF48FB1, dp(isActive ? 3 : 1)));
                 swatch.setOnClickListener(v -> { currentColor = color; refreshPalette(); refreshColorButton(); });
-                LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(dp(32), dp(32));
+                LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(dp(30), dp(30));
                 p.rightMargin = dp(4);
                 paletteRow.addView(swatch, p);
             }
@@ -296,17 +321,17 @@ public class MainActivity extends Activity {
             View swatch = new View(this);
             GradientDrawable d = new GradientDrawable();
             d.setColor(color);
-            d.setCornerRadius(dp(7));
+            d.setCornerRadius(dp(6));
             boolean isActive = (color == currentColor);
             d.setStroke(dp(isActive ? 3 : 1), isActive ? 0xFFE91E63 : 0xFFF48FB1);
             swatch.setBackground(d);
             swatch.setOnClickListener(v -> { currentColor = color; refreshPalette(); refreshColorButton(); });
-            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(dp(32), dp(32));
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(dp(30), dp(30));
             p.rightMargin = dp(4);
             paletteRow.addView(swatch, p);
         }
         View plus = makeChip("+", () -> showColorDialog(), false);
-        paletteRow.addView(plus, new LinearLayout.LayoutParams(dp(36), dp(32)));
+        paletteRow.addView(plus, new LinearLayout.LayoutParams(dp(34), dp(30)));
     }
 
     private int contrastColor(int color) {
@@ -470,7 +495,6 @@ public class MainActivity extends Activity {
     }
 
     private void chooseGridSize() {
-        // Добавлен размер 128x128
         String[] options = {"8 × 8 (Пиксель-арт)", "16 × 16 (Ретро)", "32 × 32 (Классика)", "48 × 48 (Детальный)", "64 × 64 (Большой)", "128 × 128 (Ультра)"};
         int[] sizes = {8, 16, 32, 48, 64, 128};
         new AlertDialog.Builder(this).setTitle("Выберите размер сетки").setItems(options, (d, which) -> {
@@ -696,7 +720,7 @@ public class MainActivity extends Activity {
             public boolean onScale(ScaleGestureDetector detector) {
                 float factor = detector.getScaleFactor();
                 scaleFactor *= (1.0f + (factor - 1.0f) * 0.5f);
-                scaleFactor = Math.max(1.0f, Math.min(scaleFactor, 8.0f)); // Увеличили максимальный зум для 128x128
+                scaleFactor = Math.max(1.0f, Math.min(scaleFactor, 8.0f));
                 invalidate();
                 return true;
             }
