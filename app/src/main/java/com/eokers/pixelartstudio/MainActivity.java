@@ -43,7 +43,6 @@ import org.json.JSONObject;
 
 public class MainActivity extends Activity {
     private static final int REQ_OPEN_IMAGE = 101;
-    private static final int REQ_SAVE_PNG = 102;
     private static final int MAX_HISTORY = 24;
 
     private int gridSize = 32;
@@ -112,38 +111,64 @@ public class MainActivity extends Activity {
         title.setTypeface(null, android.graphics.Typeface.BOLD);
         header.addView(title, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         
-        TextView sizeLabel = new TextView(this);
-        sizeLabel.setText(gridSize + "×" + gridSize);
-        sizeLabel.setTextColor(Color.parseColor("#C2185B"));
-        sizeLabel.setTextSize(12);
-        sizeLabel.setPadding(dp(8), dp(4), dp(8), dp(4));
-        sizeLabel.setBackground(roundBackground(0xFFFFEBEE, 0xFFF8BBD0, dp(8)));
-        sizeLabel.setOnClickListener(v -> chooseGridSize());
-        header.addView(sizeLabel);
-        root.addView(header, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(38)));
+        TextView sizeLabelHeader = new TextView(this);
+        sizeLabelHeader.setText(gridSize + "×" + gridSize);
+        sizeLabelHeader.setTextColor(Color.parseColor("#C2185B"));
+        sizeLabelHeader.setTextSize(12);
+        sizeLabelHeader.setPadding(dp(8), dp(4), dp(8), dp(4));
+        sizeLabelHeader.setBackground(roundBackground(0xFFFFEBEE, 0xFFF8BBD0, dp(8)));
+        header.addView(sizeLabelHeader);
+        root.addView(header, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(34)));
 
         statusLabel = new TextView(this);
         statusLabel.setTextColor(Color.parseColor("#AD1457"));
         statusLabel.setTextSize(11);
         statusLabel.setMaxLines(1);
-        statusLabel.setPadding(0, 0, 0, dp(4));
+        statusLabel.setPadding(0, 0, 0, dp(2));
         refreshStatus();
         root.addView(statusLabel);
 
-        // Инструменты с иконками
+        HorizontalScrollView paletteScroll = new HorizontalScrollView(this);
+        paletteScroll.setHorizontalScrollBarEnabled(false);
+        paletteRow = new LinearLayout(this);
+        paletteRow.setOrientation(LinearLayout.HORIZONTAL);
+        paletteRow.setGravity(Gravity.CENTER_VERTICAL);
+        paletteRow.setPadding(dp(2), dp(2), dp(2), dp(2));
+        paletteScroll.addView(paletteRow);
+        root.addView(paletteScroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)));
+
+        LinearLayout colorActions = new LinearLayout(this);
+        colorActions.setOrientation(LinearLayout.HORIZONTAL);
+        selectedColorView = makeChip("🎨 Цвет", () -> showColorDialog(), false);
+        selectedColorView.setCompoundDrawablePadding(dp(4));
+        colorActions.addView(selectedColorView, chipParams());
+        addChipTo(colorActions, "🔀 Смешать", () -> showMixDialog(), false);
+        addChipTo(colorActions, "✨ Оттенки", () -> addShades(), false);
+        root.addView(horizontal(colorActions));
+
         root.addView(toolbar(new String[]{"✏️ Карандаш", "🧹 Ластик", "🪣 Заливка", "💧 Пипетка"}, tool -> setTool(tool)));
 
-        // Компактные творческие кнопки
+        pixelCanvas = new PixelCanvas(this);
+        LinearLayout.LayoutParams canvasParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
+        canvasParams.topMargin = dp(2);
+        canvasParams.bottomMargin = dp(2);
+        root.addView(pixelCanvas, canvasParams);
+
+        LinearLayout sizeControlBar = new LinearLayout(this);
+        sizeControlBar.setOrientation(LinearLayout.HORIZONTAL);
+        addChipTo(sizeControlBar, "📐 Размер сетки: " + gridSize + "×" + gridSize, () -> chooseGridSize(), true);
+        root.addView(horizontal(sizeControlBar));
+
         LinearLayout creativeActions = new LinearLayout(this);
         creativeActions.setOrientation(LinearLayout.HORIZONTAL);
         addChipTo(creativeActions, "✦ ИИ", () -> showAiDialog(), true);
-        addChipTo(creativeActions, "№ Рядом", () -> convertToNumberColoring(), false);
+        addChipTo(creativeActions, "№ Раскраска", () -> convertToNumberColoring(), false);
         addChipTo(creativeActions, numberMode ? "Обычный" : "Лист", () -> {
             if (numberMode) leaveNumberColoring(); else createBlankCanvas();
         }, false);
         root.addView(horizontal(creativeActions));
 
-        // Дополнительные опции
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
         actions.setGravity(Gravity.CENTER_VERTICAL);
@@ -154,40 +179,12 @@ public class MainActivity extends Activity {
         addChipTo(actions, "🔳 Сетка", () -> toggleGrid(), showGrid);
         root.addView(horizontal(actions));
 
-        // Основной холст
-        pixelCanvas = new PixelCanvas(this);
-        LinearLayout.LayoutParams canvasParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
-        canvasParams.topMargin = dp(2);
-        canvasParams.bottomMargin = dp(2);
-        root.addView(pixelCanvas, canvasParams);
-
-        // История и управление
         LinearLayout history = new LinearLayout(this);
         history.setOrientation(LinearLayout.HORIZONTAL);
         addChipTo(history, "↶ Отмена", () -> undo(), false);
         addChipTo(history, "↷ Повтор", () -> redo(), false);
         addChipTo(history, "🗑 Очистить", () -> confirmClear(), false);
         root.addView(horizontal(history));
-
-        // Выбор цвета и палитра
-        LinearLayout colorActions = new LinearLayout(this);
-        colorActions.setOrientation(LinearLayout.HORIZONTAL);
-        selectedColorView = makeChip("🎨 Цвет", () -> showColorDialog(), false);
-        selectedColorView.setCompoundDrawablePadding(dp(4));
-        colorActions.addView(selectedColorView, chipParams());
-        addChipTo(colorActions, "🔀 Смешать", () -> showMixDialog(), false);
-        addChipTo(colorActions, "✨ Оттенки", () -> addShades(), false);
-        root.addView(horizontal(colorActions));
-
-        HorizontalScrollView paletteScroll = new HorizontalScrollView(this);
-        paletteScroll.setHorizontalScrollBarEnabled(false);
-        paletteRow = new LinearLayout(this);
-        paletteRow.setOrientation(LinearLayout.HORIZONTAL);
-        paletteRow.setGravity(Gravity.CENTER_VERTICAL);
-        paletteRow.setPadding(dp(2), dp(4), dp(2), dp(4));
-        paletteScroll.addView(paletteRow);
-        root.addView(paletteScroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(52)));
 
         setContentView(root);
         refreshPalette();
@@ -213,9 +210,9 @@ public class MainActivity extends Activity {
     }
 
     private LinearLayout.LayoutParams chipParams() {
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(34));
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(32));
         p.rightMargin = dp(4);
-        p.bottomMargin = dp(3);
+        p.bottomMargin = dp(2);
         return p;
     }
 
@@ -225,7 +222,7 @@ public class MainActivity extends Activity {
         chip.setTextColor(active ? Color.WHITE : Color.parseColor("#880E4F"));
         chip.setTextSize(11);
         chip.setGravity(Gravity.CENTER);
-        chip.setPadding(dp(10), dp(5), dp(10), dp(5));
+        chip.setPadding(dp(10), dp(4), dp(10), dp(4));
         chip.setMinWidth(dp(44));
         chip.setBackground(roundBackground(active ? 0xFFE91E63 : 0xFFFFEBEE,
                 active ? 0xFFAD1457 : 0xFFF48FB1, dp(8)));
@@ -263,7 +260,7 @@ public class MainActivity extends Activity {
             int percent = total == 0 ? 0 : Math.round(done * 100f / total);
             statusLabel.setText("РАСКРАСКА · " + percent + "% (" + done + "/" + total + ")");
         } else {
-            statusLabel.setText("Инструмент: " + currentTool + " · Зум двумя пальцами");
+            statusLabel.setText("Инструмент: " + currentTool + " · Плавный зум");
         }
     }
 
@@ -289,8 +286,8 @@ public class MainActivity extends Activity {
                 boolean isActive = (currentColor == color);
                 swatch.setBackground(roundBackground(color, isActive ? 0xFFE91E63 : 0xFFF48FB1, dp(isActive ? 3 : 1)));
                 swatch.setOnClickListener(v -> { currentColor = color; refreshPalette(); refreshColorButton(); });
-                LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(dp(34), dp(34));
-                p.rightMargin = dp(5);
+                LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(dp(32), dp(32));
+                p.rightMargin = dp(4);
                 paletteRow.addView(swatch, p);
             }
             return;
@@ -304,12 +301,12 @@ public class MainActivity extends Activity {
             d.setStroke(dp(isActive ? 3 : 1), isActive ? 0xFFE91E63 : 0xFFF48FB1);
             swatch.setBackground(d);
             swatch.setOnClickListener(v -> { currentColor = color; refreshPalette(); refreshColorButton(); });
-            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(dp(34), dp(34));
-            p.rightMargin = dp(5);
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(dp(32), dp(32));
+            p.rightMargin = dp(4);
             paletteRow.addView(swatch, p);
         }
         View plus = makeChip("+", () -> showColorDialog(), false);
-        paletteRow.addView(plus, new LinearLayout.LayoutParams(dp(38), dp(34)));
+        paletteRow.addView(plus, new LinearLayout.LayoutParams(dp(36), dp(32)));
     }
 
     private int contrastColor(int color) {
@@ -326,7 +323,6 @@ public class MainActivity extends Activity {
         refreshColorButton();
     }
 
-    // Диалог выбора цвета с возможностью ввода HEX-кода
     private void showColorDialog() {
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
@@ -338,7 +334,6 @@ public class MainActivity extends Activity {
         previewParams.bottomMargin = dp(8);
         layout.addView(preview, previewParams);
 
-        // Поле для ввода HEX-кода цвета
         LinearLayout hexRow = new LinearLayout(this);
         hexRow.setOrientation(LinearLayout.HORIZONTAL);
         hexRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -475,9 +470,10 @@ public class MainActivity extends Activity {
     }
 
     private void chooseGridSize() {
-        String[] options = {"16 × 16", "32 × 32", "64 × 64"};
-        int[] sizes = {16, 32, 64};
-        new AlertDialog.Builder(this).setTitle("Размер сетки").setItems(options, (d, which) -> {
+        // Добавлен размер 128x128
+        String[] options = {"8 × 8 (Пиксель-арт)", "16 × 16 (Ретро)", "32 × 32 (Классика)", "48 × 48 (Детальный)", "64 × 64 (Большой)", "128 × 128 (Ультра)"};
+        int[] sizes = {8, 16, 32, 48, 64, 128};
+        new AlertDialog.Builder(this).setTitle("Выберите размер сетки").setItems(options, (d, which) -> {
             gridSize = sizes[which];
             pixels = new int[gridSize * gridSize];
             Arrays.fill(pixels, Color.WHITE);
@@ -698,8 +694,9 @@ public class MainActivity extends Activity {
         private class ScaleListener extends ScaleGestureDetector.SimpleOnScaleGestureListener {
             @Override
             public boolean onScale(ScaleGestureDetector detector) {
-                scaleFactor *= detector.getScaleFactor();
-                scaleFactor = Math.max(1.0f, Math.min(scaleFactor, 5.0f));
+                float factor = detector.getScaleFactor();
+                scaleFactor *= (1.0f + (factor - 1.0f) * 0.5f);
+                scaleFactor = Math.max(1.0f, Math.min(scaleFactor, 8.0f)); // Увеличили максимальный зум для 128x128
                 invalidate();
                 return true;
             }
