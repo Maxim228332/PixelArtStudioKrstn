@@ -140,25 +140,29 @@ public class MainActivity extends Activity {
     private void buildUi() {
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Color.parseColor("#FFF5F8"));
+        // Уютный пастельно-кремовый фон приложения вместо резких цветов
+        root.setBackgroundColor(Color.parseColor("#FFFDF9"));
         root.setPadding(dp(8), dp(4), dp(8), dp(4));
 
+        // Шапка приложения
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
         header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setPadding(dp(4), dp(2), dp(4), dp(2));
+        header.setBackground(roundBackground(0xFFFFF0F3, 0xFFFFC8DD, dp(10)));
         
         LinearLayout titleBox = new LinearLayout(this);
         titleBox.setOrientation(LinearLayout.VERTICAL);
         
         TextView title = new TextView(this);
-        title.setText("PIXEL ART STUDIO 🤍");
+        title.setText("✨ PIXEL ART STUDIO 🤍");
         title.setTextColor(Color.parseColor("#AD1457"));
-        title.setTextSize(15);
+        title.setTextSize(14);
         title.setTypeface(null, android.graphics.Typeface.BOLD);
         titleBox.addView(title);
 
         TextView subtitle = new TextView(this);
-        subtitle.setText("Создано с любовью для тебя ✨");
+        subtitle.setText("Уютное творчество вместе с Мусей 🐾");
         subtitle.setTextColor(Color.parseColor("#C2185B"));
         subtitle.setTextSize(9);
         titleBox.addView(subtitle);
@@ -166,15 +170,15 @@ public class MainActivity extends Activity {
         header.addView(titleBox, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
         pixelCatView = new PixelCatView(this);
-        header.addView(pixelCatView, new LinearLayout.LayoutParams(dp(56), dp(38)));
+        header.addView(pixelCatView, new LinearLayout.LayoutParams(dp(64), dp(40)));
         
-        root.addView(header, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(40)));
+        root.addView(header, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(46)));
 
         statusLabel = new TextView(this);
         statusLabel.setTextColor(Color.parseColor("#AD1457"));
         statusLabel.setTextSize(10);
         statusLabel.setMaxLines(1);
-        statusLabel.setPadding(0, 0, 0, dp(2));
+        statusLabel.setPadding(dp(4), dp(2), dp(0), dp(2));
         refreshStatus();
         root.addView(statusLabel);
 
@@ -185,7 +189,7 @@ public class MainActivity extends Activity {
         paletteRow.setGravity(Gravity.CENTER_VERTICAL);
         paletteRow.setPadding(dp(2), dp(2), dp(2), dp(2));
         paletteScroll.addView(paletteRow);
-        root.addView(paletteScroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(44)));
+        root.addView(paletteScroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(46)));
 
         LinearLayout colorActions = new LinearLayout(this);
         colorActions.setOrientation(LinearLayout.HORIZONTAL);
@@ -201,8 +205,8 @@ public class MainActivity extends Activity {
         pixelCanvas = new PixelCanvas(this);
         LinearLayout.LayoutParams canvasParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f);
-        canvasParams.topMargin = dp(2);
-        canvasParams.bottomMargin = dp(2);
+        canvasParams.topMargin = dp(4);
+        canvasParams.bottomMargin = dp(4);
         root.addView(pixelCanvas, canvasParams);
 
         LinearLayout modeBar = new LinearLayout(this);
@@ -261,9 +265,9 @@ public class MainActivity extends Activity {
     }
 
     private LinearLayout.LayoutParams chipParams() {
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(30));
-        p.rightMargin = dp(4);
-        p.bottomMargin = dp(2);
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(32));
+        p.rightMargin = dp(6);
+        p.bottomMargin = dp(3);
         return p;
     }
 
@@ -272,11 +276,12 @@ public class MainActivity extends Activity {
         chip.setText(text);
         chip.setTextColor(active ? Color.WHITE : Color.parseColor("#880E4F"));
         chip.setTextSize(11);
+        chip.setTypeface(null, android.graphics.Typeface.BOLD);
         chip.setGravity(Gravity.CENTER);
-        chip.setPadding(dp(8), dp(3), dp(8), dp(3));
-        chip.setMinWidth(dp(40));
+        chip.setPadding(dp(10), dp(4), dp(10), dp(4));
+        chip.setMinWidth(dp(44));
         chip.setBackground(roundBackground(active ? 0xFFE91E63 : 0xFFFFEBEE,
-                active ? 0xFFAD1457 : 0xFFF48FB1, dp(6)));
+                active ? 0xFFAD1457 : 0xFFFFC8DD, dp(8)));
         chip.setOnClickListener(v -> action.run());
         return chip;
     }
@@ -316,18 +321,18 @@ public class MainActivity extends Activity {
             int total = 0;
             for (int val : numberMap) if (val > 0) total++;
             int percent = total == 0 ? 0 : Math.round(done * 100f / total);
-            statusLabel.setText("РАСКРАСКА ПО НОМЕРАМ · " + percent + "% (" + done + "/" + total + ")");
+            statusLabel.setText("✨ РАСКРАСКА ПО НОМЕРАМ · " + percent + "% (" + done + "/" + total + ")");
         } else if (isFreeDrawMode) {
-            statusLabel.setText("Режим: Обычный лист · Свободное рисование");
+            statusLabel.setText("✨ Режим: Обычный лист · Свободное рисование");
         } else {
-            statusLabel.setText("Инструмент: " + currentTool + " · Сетка " + gridSize + "x" + gridSize);
+            statusLabel.setText("✨ Инструмент: " + currentTool + " · Сетка " + gridSize + "x" + gridSize);
         }
     }
 
     private void refreshColorButton() {
         if (selectedColorView == null) return;
         selectedColorView.setText("🎨 " + String.format(Locale.US, "#%06X", currentColor & 0xFFFFFF));
-        selectedColorView.setBackground(roundBackground(0xFFFFEBEE, currentColor, dp(6)));
+        selectedColorView.setBackground(roundBackground(0xFFFFEBEE, currentColor, dp(8)));
     }
 
     private void refreshPalette() {
@@ -344,10 +349,10 @@ public class MainActivity extends Activity {
                 swatch.setTypeface(null, android.graphics.Typeface.BOLD);
                 swatch.setGravity(Gravity.CENTER);
                 boolean isActive = (currentColor == color);
-                swatch.setBackground(roundBackground(color, isActive ? 0xFFE91E63 : 0xFFF48FB1, dp(isActive ? 3 : 1)));
+                swatch.setBackground(roundBackground(color, isActive ? 0xFFE91E63 : 0xFFFFC8DD, dp(isActive ? 4 : 2)));
                 swatch.setOnClickListener(v -> { currentColor = color; refreshPalette(); refreshColorButton(); });
-                LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(dp(30), dp(30));
-                p.rightMargin = dp(4);
+                LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(dp(32), dp(32));
+                p.rightMargin = dp(5);
                 paletteRow.addView(swatch, p);
             }
             return;
@@ -356,17 +361,17 @@ public class MainActivity extends Activity {
             View swatch = new View(this);
             GradientDrawable d = new GradientDrawable();
             d.setColor(color);
-            d.setCornerRadius(dp(6));
+            d.setCornerRadius(dp(8));
             boolean isActive = (color == currentColor);
-            d.setStroke(dp(isActive ? 3 : 1), isActive ? 0xFFE91E63 : 0xFFF48FB1);
+            d.setStroke(dp(isActive ? 3 : 1), isActive ? 0xFFE91E63 : 0xFFFFC8DD);
             swatch.setBackground(d);
             swatch.setOnClickListener(v -> { currentColor = color; refreshPalette(); refreshColorButton(); });
-            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(dp(30), dp(30));
-            p.rightMargin = dp(4);
+            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(dp(32), dp(32));
+            p.rightMargin = dp(5);
             paletteRow.addView(swatch, p);
         }
         View plus = makeChip("+", () -> showColorDialog(), false);
-        paletteRow.addView(plus, new LinearLayout.LayoutParams(dp(34), dp(30)));
+        paletteRow.addView(plus, new LinearLayout.LayoutParams(dp(36), dp(32)));
     }
 
     private int contrastColor(int color) {
@@ -706,7 +711,7 @@ public class MainActivity extends Activity {
         Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
     }
 
-    // Полноценная, красивая анимированная Муся (пухленькая кошечка с ушками, хвостиком и подмигиванием)
+    // Уютная анимированная Муся (Pusheen-стиль с узорами)
     public static class PixelCatView extends View {
         private boolean winking = false;
         private Paint p = new Paint();
@@ -726,62 +731,49 @@ public class MainActivity extends Activity {
             super.onDraw(canvas);
             float width = getWidth();
             float height = getHeight();
-            float ps = Math.min(width / 24f, height / 16f);
+            float ps = Math.min(width / 28f, height / 18f);
 
             canvas.save();
-            canvas.translate((width - ps * 24f) / 2f, (height - ps * 16f) / 2f);
+            canvas.translate((width - ps * 28f) / 2f, (height - ps * 18f) / 2f);
 
-            // Тёмно-серый контур кошечки
             p.setStyle(Paint.Style.FILL);
-            p.setColor(Color.parseColor("#374151"));
+            p.setColor(Color.parseColor("#2C323B"));
 
-            // Ушки
-            canvas.drawRect(3 * ps, 1 * ps, 6 * ps, 5 * ps, p);
-            canvas.drawRect(15 * ps, 1 * ps, 18 * ps, 5 * ps, p);
+            canvas.drawRect(4 * ps, 2 * ps, 8 * ps, 8 * ps, p);
+            canvas.drawRect(20 * ps, 2 * ps, 24 * ps, 8 * ps, p);
+            canvas.drawRect(2 * ps, 7 * ps, 25 * ps, 16 * ps, p);
+            canvas.drawRect(23 * ps, 5 * ps, 26 * ps, 13 * ps, p);
+            canvas.drawRect(4 * ps, 15 * ps, 8 * ps, 18 * ps, p);
+            canvas.drawRect(9 * ps, 15 * ps, 12 * ps, 18 * ps, p);
+            canvas.drawRect(14 * ps, 15 * ps, 17 * ps, 18 * ps, p);
+            canvas.drawRect(19 * ps, 15 * ps, 23 * ps, 18 * ps, p);
 
-            // Тело кошечки (основной силуэт)
-            canvas.drawRect(2 * ps, 4 * ps, 19 * ps, 13 * ps, p);
+            p.setColor(Color.parseColor("#B0BEC5"));
+            canvas.drawRect(5 * ps, 3 * ps, 7 * ps, 7 * ps, p);
+            canvas.drawRect(21 * ps, 3 * ps, 23 * ps, 7 * ps, p);
+            canvas.drawRect(3 * ps, 8 * ps, 24 * ps, 15 * ps, p);
+            canvas.drawRect(24 * ps, 6 * ps, 25 * ps, 12 * ps, p);
 
-            // Хвостик справа с полосками
-            canvas.drawRect(19 * ps, 5 * ps, 22 * ps, 11 * ps, p);
+            p.setColor(Color.parseColor("#78909C"));
+            canvas.drawRect(10 * ps, 8 * ps, 12 * ps, 10 * ps, p);
+            canvas.drawRect(16 * ps, 8 * ps, 18 * ps, 10 * ps, p);
+            canvas.drawRect(24 * ps, 7 * ps, 25 * ps, 8 * ps, p);
+            canvas.drawRect(24 * ps, 10 * ps, 25 * ps, 11 * ps, p);
 
-            // Лапки снизу
-            canvas.drawRect(4 * ps, 13 * ps, 7 * ps, 15 * ps, p);
-            canvas.drawRect(9 * ps, 13 * ps, 12 * ps, 13 * ps, p); // заглушка промежутка
-            canvas.drawRect(13 * ps, 13 * ps, 16 * ps, 15 * ps, p);
-
-            // Светло-серая шерстка Муси (внутри контура)
-            p.setColor(Color.parseColor("#CFD8DC"));
-            canvas.drawRect(4 * ps, 2 * ps, 5 * ps, 4 * ps, p);
-            canvas.drawRect(16 * ps, 2 * ps, 17 * ps, 4 * ps, p);
-            canvas.drawRect(3 * ps, 5 * ps, 18 * ps, 12 * ps, p);
-            canvas.drawRect(20 * ps, 6 * ps, 21 * ps, 10 * ps, p);
-
-            // Полоски на спине
-            p.setColor(Color.parseColor("#90A4AE"));
-            canvas.drawRect(8 * ps, 5 * ps, 10 * ps, 7 * ps, p);
-            canvas.drawRect(13 * ps, 5 * ps, 15 * ps, 7 * ps, p);
-            canvas.drawRect(20 * ps, 7 * ps, 21 * ps, 8 * ps, p);
-
-            // Глазки и носик
             p.setColor(Color.parseColor("#212121"));
-            // Левый глаз
-            canvas.drawRect(6 * ps, 7 * ps, 8 * ps, 9 * ps, p);
-            // Носик
-            canvas.drawRect(10 * ps, 8 * ps, 11 * ps, 9 * ps, p);
-
-            // Правый глаз (подмигивание)
+            canvas.drawRect(7 * ps, 10 * ps, 9 * ps, 12 * ps, p);
+            canvas.drawRect(12 * ps, 11 * ps, 14 * ps, 13 * ps, p);
+            
             if (!winking) {
-                canvas.drawRect(13 * ps, 7 * ps, 15 * ps, 9 * ps, p);
+                canvas.drawRect(17 * ps, 10 * ps, 19 * ps, 12 * ps, p);
             } else {
-                p.setStrokeWidth(ps * 1.2f);
-                canvas.drawLine(13 * ps, 8 * ps, 16 * ps, 8 * ps, p);
+                p.setStrokeWidth(ps * 1.3f);
+                canvas.drawLine(17 * ps, 11 * ps, 20 * ps, 11 * ps, p);
             }
 
-            // Розовые щечки
             p.setColor(Color.parseColor("#FF80AB"));
-            canvas.drawRect(5 * ps, 9 * ps, 7 * ps, 11 * ps, p);
-            canvas.drawRect(14 * ps, 9 * ps, 16 * ps, 11 * ps, p);
+            canvas.drawRect(5 * ps, 12 * ps, 7 * ps, 14 * ps, p);
+            canvas.drawRect(19 * ps, 12 * ps, 21 * ps, 14 * ps, p);
 
             canvas.restore();
         }
@@ -867,7 +859,7 @@ public class MainActivity extends Activity {
                 case MotionEvent.ACTION_CANCEL: {
                     if (isFreeDrawMode && currentFreePath != null) {
                         boolean eraser = currentTool.contains("Ластик");
-                        freePaths.add(new PathElement(currentFreePath, eraser ? Color.parseColor("#FFF5F8") : currentColor, eraser));
+                        freePaths.add(new PathElement(currentFreePath, eraser ? Color.parseColor("#FFFDF9") : currentColor, eraser));
                         currentFreePath = null;
                         invalidate();
                     }
@@ -991,7 +983,7 @@ public class MainActivity extends Activity {
                     paint.setStrokeCap(Paint.Cap.ROUND);
                     paint.setStrokeJoin(Paint.Join.ROUND);
                     paint.setAntiAlias(true);
-                    paint.setColor(currentTool.contains("Ластик") ? Color.parseColor("#FFF5F8") : currentColor);
+                    paint.setColor(currentTool.contains("Ластик") ? Color.parseColor("#FFFDF9") : currentColor);
                     canvas.drawPath(currentFreePath, paint);
                 }
             } else {
