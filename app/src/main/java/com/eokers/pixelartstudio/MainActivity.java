@@ -50,7 +50,7 @@ public class MainActivity extends Activity {
     private Bitmap referenceBitmap;
     private boolean showReference = true;
     private boolean showGrid = true;
-    private int currentColor = Color.parseColor("#FF80AB"); // Теплый розовый акцент
+    private int currentColor = Color.parseColor("#FF80AB");
     private String currentTool = "✏️ Карандаш";
     
     private boolean numberMode = false;
@@ -140,7 +140,7 @@ public class MainActivity extends Activity {
     private void buildUi() {
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Color.parseColor("#FFF5F8")); // Нежный зефирно-розовый уютный фон
+        root.setBackgroundColor(Color.parseColor("#FFF5F8"));
         root.setPadding(dp(8), dp(4), dp(8), dp(4));
 
         LinearLayout header = new LinearLayout(this);
@@ -460,7 +460,7 @@ public class MainActivity extends Activity {
     }
 
     private void showMixDialog() {
-        toast("Мурлыка помогает смешивать краски!");
+        toast("Муся помогает смешивать краски! ✨");
     }
 
     private void addShades() {
@@ -871,7 +871,7 @@ public class MainActivity extends Activity {
                             refreshStatus();
                         } else {
                             if (System.currentTimeMillis() - lastWrongColorToast > 1500) {
-                                toast("Мурлыка: нужен цвет №" + expectedNum);
+                                toast("Муся: нужен цвет №" + expectedNum);
                                 lastWrongColorToast = System.currentTimeMillis();
                             }
                         }
