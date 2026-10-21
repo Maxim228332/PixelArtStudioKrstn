@@ -9,7 +9,6 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
@@ -46,14 +45,7 @@ public class MainActivity extends Activity {
     private int currentColor = Color.parseColor("#E91E63");
     private String currentTool = "✏️ Карандаш";
     
-    // Новые фичи
-    private boolean freeDrawMode = false; // Свободное рисование (не по пикселям)
-    private boolean symmetryMode = false; // Режим зеркала
-    private Bitmap freeDrawBitmap;
-    private Canvas freeDrawCanvas;
-    private Path currentPath = new Path();
-    private float freeX, freeY;
-
+    private boolean symmetryMode = false;
     private boolean numberMode = false;
     private int[] numberMap = new int[0];
     private int[] numberColors = new int[0];
@@ -82,9 +74,12 @@ public class MainActivity extends Activity {
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) hideSystemUI();
+        if (hasFocus) {
+            hideSystemUI();
+        }
     }
 
     private void hideSystemUI() {
         View decorView = getWindow().getDecorView();
-        decorView.setSystemUi
+        decorView.setSystemUiVisibility(
+                View.
