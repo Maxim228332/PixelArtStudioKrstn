@@ -166,7 +166,7 @@ public class MainActivity extends Activity {
         header.addView(titleBox, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
         pixelCatView = new PixelCatView(this);
-        header.addView(pixelCatView, new LinearLayout.LayoutParams(dp(48), dp(36)));
+        header.addView(pixelCatView, new LinearLayout.LayoutParams(dp(56), dp(38)));
         
         root.addView(header, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(40)));
 
@@ -602,32 +602,33 @@ public class MainActivity extends Activity {
         int[] bmpPixels = new int[w * h];
         bmp.getPixels(bmpPixels, 0, w, 0, 0, w, h);
 
-        int[] mappedValues = new int[bmpPixels.length];
-        for (int i = 0; i < bmpPixels.length; i++) {
-            int p = bmpPixels[i];
-            if (Color.alpha(p) > 10 && p != Color.WHITE) {
-                if (!colors.contains(p) && colors.size() < 12) {
-                    colors.add(p);
+        numberMap = new int[gridSize * gridSize];
+        for (int r = 0; r < gridSize; r++) {
+            for (int c = 0; c < gridSize; c++) {
+                int srcX = c * w / gridSize;
+                int srcY = r * h / gridSize;
+                int p = bmpPixels[srcY * w + srcX];
+
+                if (Color.alpha(p) > 10 && p != Color.WHITE) {
+                    int existingIdx = colors.indexOf(p);
+                    if (existingIdx == -1) {
+                        if (colors.size() < 16) {
+                            colors.add(p);
+                            existingIdx = colors.size() - 1;
+                        } else {
+                            existingIdx = 0; 
+                        }
+                    }
+                    numberMap[r * gridSize + c] = existingIdx + 1;
+                } else {
+                    numberMap[r * gridSize + c] = 0;
                 }
-                int idx = colors.indexOf(p);
-                mappedValues[i] = (idx != -1) ? idx + 1 : 1;
-            } else {
-                mappedValues[i] = 0;
             }
         }
 
         if (colors.isEmpty()) colors.add(Color.parseColor("#E91E63"));
         numberColors = new int[colors.size()];
         for (int i = 0; i < colors.size(); i++) numberColors[i] = colors.get(i);
-        
-        numberMap = new int[gridSize * gridSize];
-        for (int r = 0; r < gridSize; r++) {
-            for (int c = 0; c < gridSize; c++) {
-                int srcX = c * w / gridSize;
-                int srcY = r * h / gridSize;
-                numberMap[r * gridSize + c] = mappedValues[srcY * w + srcX];
-            }
-        }
 
         numberMode = true;
         isFreeDrawMode = false;
@@ -639,23 +640,30 @@ public class MainActivity extends Activity {
 
     private void convertToNumberColoring() {
         List<Integer> colors = new ArrayList<>();
-        for (int p : pixels) {
-            if (Color.alpha(p) > 10 && p != Color.WHITE && !colors.contains(p)) colors.add(p);
-        }
-        if (colors.isEmpty()) {
-            toast("Сначала нарисуйте что-нибудь");
-            return;
-        }
-        numberColors = new int[colors.size()];
-        for (int i = 0; i < colors.size(); i++) numberColors[i] = colors.get(i);
         numberMap = new int[pixels.length];
+        
         for (int i = 0; i < pixels.length; i++) {
-            if (Color.alpha(pixels[i]) > 10 && pixels[i] != Color.WHITE) {
-                numberMap[i] = colors.indexOf(pixels[i]) + 1;
+            int p = pixels[i];
+            if (Color.alpha(p) > 10 && p != Color.WHITE) {
+                int existingIdx = colors.indexOf(p);
+                if (existingIdx == -1) {
+                    colors.add(p);
+                    existingIdx = colors.size() - 1;
+                }
+                numberMap[i] = existingIdx + 1;
             } else {
                 numberMap[i] = 0;
             }
         }
+
+        if (colors.isEmpty()) {
+            toast("Сначала нарисуйте что-нибудь");
+            return;
+        }
+
+        numberColors = new int[colors.size()];
+        for (int i = 0; i < colors.size(); i++) numberColors[i] = colors.get(i);
+
         numberMode = true;
         isFreeDrawMode = false;
         currentColor = numberColors[0];
@@ -698,7 +706,7 @@ public class MainActivity extends Activity {
         Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
     }
 
-    // Точная пиксельная копия Муси (в стиле Pusheen) с анимированным подмигиванием
+    // Полноценная, красивая анимированная Муся (пухленькая кошечка с ушками, хвостиком и подмигиванием)
     public static class PixelCatView extends View {
         private boolean winking = false;
         private Paint p = new Paint();
@@ -718,62 +726,62 @@ public class MainActivity extends Activity {
             super.onDraw(canvas);
             float width = getWidth();
             float height = getHeight();
-            float ps = Math.min(width / 26f, height / 18f); // Размер пиксельного блока
+            float ps = Math.min(width / 24f, height / 16f);
 
             canvas.save();
-            canvas.translate((width - ps * 26f) / 2f, (height - ps * 18f) / 2f);
+            canvas.translate((width - ps * 24f) / 2f, (height - ps * 16f) / 2f);
 
-            // Обводка и контур Муси (темно-серый/черный)
+            // Тёмно-серый контур кошечки
             p.setStyle(Paint.Style.FILL);
             p.setColor(Color.parseColor("#374151"));
 
             // Ушки
-            canvas.drawRect(3 * ps, 2 * ps, 6 * ps, 7 * ps, p);
-            canvas.drawRect(18 * ps, 2 * ps, 21 * ps, 7 * ps, p);
+            canvas.drawRect(3 * ps, 1 * ps, 6 * ps, 5 * ps, p);
+            canvas.drawRect(15 * ps, 1 * ps, 18 * ps, 5 * ps, p);
 
-            // Основное тело
-            canvas.drawRect(2 * ps, 6 * ps, 23 * ps, 15 * ps, p);
-            // Хвостик справа
-            canvas.drawRect(22 * ps, 7 * ps, 25 * ps, 13 * ps, p);
+            // Тело кошечки (основной силуэт)
+            canvas.drawRect(2 * ps, 4 * ps, 19 * ps, 13 * ps, p);
+
+            // Хвостик справа с полосками
+            canvas.drawRect(19 * ps, 5 * ps, 22 * ps, 11 * ps, p);
+
             // Лапки снизу
-            canvas.drawRect(4 * ps, 14 * ps, 7 * ps, 17 * ps, p);
-            canvas.drawRect(9 * ps, 14 * ps, 12 * ps, 17 * ps, p);
-            canvas.drawRect(14 * ps, 14 * ps, 17 * ps, 17 * ps, p);
-            canvas.drawRect(19 * ps, 14 * ps, 22 * ps, 17 * ps, p);
+            canvas.drawRect(4 * ps, 13 * ps, 7 * ps, 15 * ps, p);
+            canvas.drawRect(9 * ps, 13 * ps, 12 * ps, 13 * ps, p); // заглушка промежутка
+            canvas.drawRect(13 * ps, 13 * ps, 16 * ps, 15 * ps, p);
 
-            // Заливка тела (светло-серый цвет Муси)
-            p.setColor(Color.parseColor("#E0E0E0"));
-            canvas.drawRect(4 * ps, 3 * ps, 6 * ps, 6 * ps, p);
-            canvas.drawRect(19 * ps, 3 * ps, 21 * ps, 6 * ps, p);
-            canvas.drawRect(3 * ps, 7 * ps, 22 * ps, 14 * ps, p);
-            canvas.drawRect(23 * ps, 8 * ps, 24 * ps, 12 * ps, p);
+            // Светло-серая шерстка Муси (внутри контура)
+            p.setColor(Color.parseColor("#CFD8DC"));
+            canvas.drawRect(4 * ps, 2 * ps, 5 * ps, 4 * ps, p);
+            canvas.drawRect(16 * ps, 2 * ps, 17 * ps, 4 * ps, p);
+            canvas.drawRect(3 * ps, 5 * ps, 18 * ps, 12 * ps, p);
+            canvas.drawRect(20 * ps, 6 * ps, 21 * ps, 10 * ps, p);
 
-            // Полоски на спине и хвосте
-            p.setColor(Color.parseColor("#B0BEC5"));
-            canvas.drawRect(9 * ps, 7 * ps, 11 * ps, 9 * ps, p);
-            canvas.drawRect(15 * ps, 7 * ps, 17 * ps, 9 * ps, p);
-            canvas.drawRect(23 * ps, 9 * ps, 24 * ps, 10 * ps, p);
+            // Полоски на спине
+            p.setColor(Color.parseColor("#90A4AE"));
+            canvas.drawRect(8 * ps, 5 * ps, 10 * ps, 7 * ps, p);
+            canvas.drawRect(13 * ps, 5 * ps, 15 * ps, 7 * ps, p);
+            canvas.drawRect(20 * ps, 7 * ps, 21 * ps, 8 * ps, p);
 
-            // Мордочка и глазки
+            // Глазки и носик
             p.setColor(Color.parseColor("#212121"));
             // Левый глаз
-            canvas.drawRect(6 * ps, 9 * ps, 8 * ps, 11 * ps, p);
-            // Носик и ротик
-            canvas.drawRect(11 * ps, 10 * ps, 13 * ps, 12 * ps, p);
-            
-            // Правый глаз (или подмигивание)
+            canvas.drawRect(6 * ps, 7 * ps, 8 * ps, 9 * ps, p);
+            // Носик
+            canvas.drawRect(10 * ps, 8 * ps, 11 * ps, 9 * ps, p);
+
+            // Правый глаз (подмигивание)
             if (!winking) {
-                canvas.drawRect(16 * ps, 9 * ps, 18 * ps, 11 * ps, p);
+                canvas.drawRect(13 * ps, 7 * ps, 15 * ps, 9 * ps, p);
             } else {
-                // Подмигивающая линия
                 p.setStrokeWidth(ps * 1.2f);
-                canvas.drawLine(16 * ps, 10 * ps, 19 * ps, 10 * ps, p);
+                canvas.drawLine(13 * ps, 8 * ps, 16 * ps, 8 * ps, p);
             }
 
             // Розовые щечки
             p.setColor(Color.parseColor("#FF80AB"));
-            canvas.drawRect(4 * ps, 11 * ps, 6 * ps, 13 * ps, p);
-            canvas.drawRect(18 * ps, 11 * ps, 20 * ps, 13 * ps, p);
+            canvas.drawRect(5 * ps, 9 * ps, 7 * ps, 11 * ps, p);
+            canvas.drawRect(14 * ps, 9 * ps, 16 * ps, 11 * ps, p);
 
             canvas.restore();
         }
