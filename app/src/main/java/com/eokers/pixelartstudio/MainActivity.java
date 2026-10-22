@@ -2,25 +2,20 @@ package com.eokers.pixelartstudio;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.MediaStore;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -34,8 +29,6 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayDeque;
@@ -46,6 +39,7 @@ import java.util.Locale;
 
 public class MainActivity extends Activity {
     private static final int REQ_OPEN_IMAGE = 101;
+    private static final int REQ_SAVE_IMAGE = 102;
     private static final int MAX_HISTORY = 24;
 
     private int gridSize = 32;
@@ -588,89 +582,76 @@ public class MainActivity extends Activity {
         startActivityForResult(intent, REQ_OPEN_IMAGE);
     }
 
+    // Сохранение файла с выбором папки через системный диалог
     private void savePng() {
         try {
-            int exportSize = 1024;
-            Bitmap exportBmp = Bitmap.createBitmap(exportSize, exportSize, Bitmap.Config.ARGB_8888);
-            Canvas canvas = new Canvas(exportBmp);
-            float cellSize = (float) exportSize / gridSize;
-
-            Paint paint = new Paint();
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(Color.parseColor("#FFFDF9"));
-            canvas.drawRect(0, 0, exportSize, exportSize, paint);
-
-            if (isFreeDrawMode) {
-                for (PathElement pe : freePaths) {
-                    paint.setStyle(Paint.Style.STROKE);
-                    paint.setStrokeWidth(8f * (exportSize / 512f));
-                    paint.setStrokeCap(Paint.Cap.ROUND);
-                    paint.setStrokeJoin(Paint.Join.ROUND);
-                    paint.setAntiAlias(true);
-                    paint.setColor(pe.color);
-                    Path scaledPath = new Path(pe.path);
-                    canvas.drawPath(scaledPath, paint);
-                }
-            } else {
-                for (int r = 0; r < gridSize; r++) {
-                    for (int c = 0; c < gridSize; c++) {
-                        int idx = r * gridSize + c;
-                        int pColor = pixels[idx] == 0 ? Color.TRANSPARENT : pixels[idx];
-                        if (pColor != Color.TRANSPARENT && pColor != Color.WHITE) {
-                            paint.setColor(pColor);
-                            canvas.drawRect(c * cellSize, r * cellSize, (c + 1) * cellSize, (r + 1) * cellSize, paint);
-                        }
-                    }
-                }
-            }
-
-            String fileName = "PixelArt_" + System.currentTimeMillis() + ".png";
-            OutputStream fos = null;
-            Uri imageUri = null;
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                ContentValues values = new ContentValues();
-                values.put(MediaStore.Images.Media.DISPLAY_NAME, fileName);
-                values.put(MediaStore.Images.Media.MIME_TYPE, "image/png");
-                values.put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/PixelArtStudio");
-                imageUri = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
-                if (imageUri != null) {
-                    fos = getContentResolver().openOutputStream(imageUri);
-                }
-            } else {
-                File imagesDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "PixelArtStudio");
-                if (!imagesDir.exists()) imagesDir.mkdirs();
-                File imageFile = new File(imagesDir, fileName);
-                fos = new FileOutputStream(imageFile);
-                imageUri = Uri.fromFile(imageFile);
-                Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, imageUri);
-                sendBroadcast(mediaScanIntent);
-            }
-
-            if (fos != null) {
-                exportBmp.compress(Bitmap.CompressFormat.PNG, 100, fos);
-                fos.flush();
-                fos.close();
-                toast("💾 Рисунок сохранен в галерею!");
-            } else {
-                toast("Ошибка сохранения файла");
-            }
+            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("image/png");
+            intent.putExtra(Intent.EXTRA_TITLE, "PixelArt_" + System.currentTimeMillis() + ".png");
+            startActivityForResult(intent, REQ_SAVE_IMAGE);
         } catch (Exception e) {
-            toast("Ошибка экспорта: " + e.getMessage());
+            toast("Ошибка запуска сохранения: " + e.getMessage());
         }
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQ_OPEN_IMAGE && resultCode == RESULT_OK && data != null && data.getData() != null) {
-            try (InputStream stream = getContentResolver().openInputStream(data.getData())) {
-                Bitmap loaded = BitmapFactory.decodeStream(stream);
-                if (loaded != null) {
-                    showImportStyleDialog(loaded);
+        if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+            if (requestCode == REQ_OPEN_IMAGE) {
+                try (InputStream stream = getContentResolver().openInputStream(data.getData())) {
+                    Bitmap loaded = BitmapFactory.decodeStream(stream);
+                    if (loaded != null) {
+                        showImportStyleDialog(loaded);
+                    }
+                } catch (Exception e) {
+                    toast("Ошибка чтения файла");
                 }
-            } catch (Exception e) {
-                toast("Ошибка чтения файла");
+            } else if (requestCode == REQ_SAVE_IMAGE) {
+                try (OutputStream fos = getContentResolver().openOutputStream(data.getData())) {
+                    if (fos != null) {
+                        int exportSize = 1024;
+                        Bitmap exportBmp = Bitmap.createBitmap(exportSize, exportSize, Bitmap.Config.ARGB_8888);
+                        Canvas canvas = new Canvas(exportBmp);
+                        float cellSize = (float) exportSize / gridSize;
+
+                        Paint paint = new Paint();
+                        paint.setStyle(Paint.Style.FILL);
+                        paint.setColor(Color.parseColor("#FFFDF9"));
+                        canvas.drawRect(0, 0, exportSize, exportSize, paint);
+
+                        if (isFreeDrawMode) {
+                            for (PathElement pe : freePaths) {
+                                paint.setStyle(Paint.Style.STROKE);
+                                paint.setStrokeWidth(8f * (exportSize / 512f));
+                                paint.setStrokeCap(Paint.Cap.ROUND);
+                                paint.setStrokeJoin(Paint.Join.ROUND);
+                                paint.setAntiAlias(true);
+                                paint.setColor(pe.color);
+                                Path scaledPath = new Path(pe.path);
+                                canvas.drawPath(scaledPath, paint);
+                            }
+                        } else {
+                            for (int r = 0; r < gridSize; r++) {
+                                for (int c = 0; c < gridSize; c++) {
+                                    int idx = r * gridSize + c;
+                                    int pColor = pixels[idx] == 0 ? Color.TRANSPARENT : pixels[idx];
+                                    if (pColor != Color.TRANSPARENT && pColor != Color.WHITE) {
+                                        paint.setColor(pColor);
+                                        canvas.drawRect(c * cellSize, r * cellSize, (c + 1) * cellSize, (r + 1) * cellSize, paint);
+                                    }
+                                }
+                            }
+                        }
+
+                        exportBmp.compress(Bitmap.CompressFormat.PNG, 100, fos);
+                        fos.flush();
+                        toast("💾 Файл успешно сохранен!");
+                    }
+                } catch (Exception e) {
+                    toast("Ошибка записи файла: " + e.getMessage());
+                }
             }
         }
     }
