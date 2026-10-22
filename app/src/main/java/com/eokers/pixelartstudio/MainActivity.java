@@ -582,7 +582,6 @@ public class MainActivity extends Activity {
         startActivityForResult(intent, REQ_OPEN_IMAGE);
     }
 
-    // Сохранение файла с выбором папки через системный диалог
     private void savePng() {
         try {
             Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
@@ -994,12 +993,117 @@ public class MainActivity extends Activity {
         private ScaleGestureDetector scaleDetector;
         private Paint paint;
 
+        private Bitmap canvasBitmap;
+        private Canvas cacheCanvas;
+        private boolean isCacheDirty = true;
+
         public PixelCanvas(Context context) {
             super(context);
             scaleDetector = new ScaleGestureDetector(context, new ScaleListener());
             paint = new Paint();
             paint.setAntiAlias(false);
             paint.setFilterBitmap(false);
+        }
+
+        @Override
+        public void invalidate() {
+            isCacheDirty = true;
+            super.invalidate();
+        }
+
+        private void updateCacheIfNeeded(int viewSize) {
+            if (canvasBitmap == null || canvasBitmap.getWidth() != viewSize || isCacheDirty) {
+                if (canvasBitmap == null || canvasBitmap.getWidth() != viewSize) {
+                    canvasBitmap = Bitmap.createBitmap(viewSize, viewSize, Bitmap.Config.RGB_565);
+                    cacheCanvas = new Canvas(canvasBitmap);
+                }
+
+                cacheCanvas.drawColor(Color.parseColor("#FFFDF9"));
+                float cellSize = (float) viewSize / gridSize;
+
+                if (showReference && referenceBitmap != null) {
+                    Paint refPaint = new Paint();
+                    refPaint.setAlpha(110);
+                    refPaint.setFilterBitmap(false);
+                    cacheCanvas.drawBitmap(referenceBitmap, null, new RectF(0, 0, viewSize, viewSize), refPaint);
+                }
+
+                if (isFreeDrawMode) {
+                    for (PathElement pe : freePaths) {
+                        paint.setStyle(Paint.Style.STROKE);
+                        paint.setStrokeWidth(8f);
+                        paint.setStrokeCap(Paint.Cap.ROUND);
+                        paint.setStrokeJoin(Paint.Join.ROUND);
+                        paint.setAntiAlias(true);
+                        paint.setColor(pe.color);
+                        cacheCanvas.drawPath(pe.path, paint);
+                    }
+                } else {
+                    Paint numPaint = new Paint();
+                    numPaint.setAntiAlias(false);
+                    numPaint.setColor(Color.parseColor("#AD1457"));
+                    numPaint.setTextSize(cellSize * 0.45f);
+
+                    for (int r = 0; r < gridSize; r++) {
+                        for (int c = 0; c < gridSize; c++) {
+                            int idx = r * gridSize + c;
+                            float left = c * cellSize;
+                            float top = r * cellSize;
+                            
+                            int pColor = pixels[idx] == 0 ? Color.TRANSPARENT : pixels[idx];
+
+                            if (numberMode && pixels[idx] == Color.WHITE) {
+                                // Пропускаем
+                            } else if (pColor != Color.TRANSPARENT) {
+                                paint.setStyle(Paint.Style.FILL);
+                                paint.setColor(pColor);
+                                cacheCanvas.drawRect(left, top, left + cellSize + 0.5f, top + cellSize + 0.5f, paint);
+                            }
+
+                            if (numberMode && numberMap.length > idx && numberMap[idx] > 0 && pixels[idx] == Color.WHITE && cellSize > 14) {
+                                cacheCanvas.drawText(String.valueOf(numberMap[idx]), left + cellSize * 0.25f, top + cellSize * 0.7f, numPaint);
+                            }
+
+                            if (showGrid && cellSize > 6) {
+                                paint.setStyle(Paint.Style.STROKE);
+                                paint.setColor(Color.parseColor("#F8BBD0"));
+                                paint.setStrokeWidth(1f);
+                                cacheCanvas.drawRect(left, top, left + cellSize + 0.5f, top + cellSize + 0.5f, paint);
+                            }
+                        }
+                    }
+                }
+                isCacheDirty = false;
+            }
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            int viewSize = Math.min(getWidth(), getHeight());
+            if (viewSize <= 0) return;
+
+            updateCacheIfNeeded(viewSize);
+
+            canvas.save();
+            canvas.translate(panX, panY);
+            canvas.scale(scaleFactor, scaleFactor);
+
+            if (canvasBitmap != null) {
+                canvas.drawBitmap(canvasBitmap, 0, 0, null);
+            }
+
+            if (isFreeDrawMode && currentFreePath != null) {
+                paint.setStyle(Paint.Style.STROKE);
+                paint.setStrokeWidth(8f / scaleFactor);
+                paint.setStrokeCap(Paint.Cap.ROUND);
+                paint.setStrokeJoin(Paint.Join.ROUND);
+                paint.setAntiAlias(true);
+                paint.setColor(currentTool.contains("Ластик") ? Color.parseColor("#FFFDF9") : currentColor);
+                canvas.drawPath(currentFreePath, paint);
+            }
+
+            canvas.restore();
         }
 
         @Override
@@ -1028,20 +1132,18 @@ public class MainActivity extends Activity {
                 }
 
                 case MotionEvent.ACTION_MOVE: {
-                    if (scaleFactor > 1.0f && event.getPointerCount() > 1) {
+                    if (scaleFactor > 1.0f && event.getPointerCount() > 1 || scaleDetector.isInProgress()) {
                         final int pointerIndex = event.findPointerIndex(activePointerId);
                         if (pointerIndex != -1) {
                             float x = event.getX(pointerIndex);
                             float y = event.getY(pointerIndex);
-
                             panX += x - lastTouchX;
                             panY += y - lastTouchY;
-
                             lastTouchX = x;
                             lastTouchY = y;
                             invalidate();
                         }
-                    } else if (!scaleDetector.isInProgress()) {
+                    } else {
                         if (isFreeDrawMode && currentFreePath != null) {
                             final int pointerIndex = event.findPointerIndex(activePointerId);
                             if (pointerIndex != -1) {
@@ -1087,37 +1189,51 @@ public class MainActivity extends Activity {
 
             if (col >= 0 && col < gridSize && row >= 0 && row < gridSize) {
                 int index = row * gridSize + col;
-                pushUndo();
 
                 if (numberMode) {
-                    int expectedNum = numberMap[index];
-                    if (expectedNum > 0) {
-                        int expectedColor = numberColors[expectedNum - 1];
-                        if (currentColor == expectedColor) {
-                            pixels[index] = currentColor;
-                            refreshStatus();
-                        } else {
-                            if (System.currentTimeMillis() - lastWrongColorToast > 1500) {
-                                toast("Муся: нужен цвет №" + expectedNum);
-                                lastWrongColorToast = System.currentTimeMillis();
+                    if (numberMap.length > index) {
+                        int expectedNum = numberMap[index];
+                        if (expectedNum > 0) {
+                            int expectedColor = numberColors[expectedNum - 1];
+                            if (currentColor == expectedColor) {
+                                if (pixels[index] != currentColor) {
+                                    pushUndo();
+                                    pixels[index] = currentColor;
+                                    refreshStatus();
+                                    invalidate();
+                                }
+                            } else {
+                                if (System.currentTimeMillis() - lastWrongColorToast > 1500) {
+                                    toast("Муся: нужен цвет №" + expectedNum);
+                                    lastWrongColorToast = System.currentTimeMillis();
+                                }
                             }
                         }
                     }
                 } else {
                     if (currentTool.contains("Карандаш")) {
-                        pixels[index] = currentColor;
+                        if (pixels[index] != currentColor) {
+                            pushUndo();
+                            pixels[index] = currentColor;
+                            invalidate();
+                        }
                     } else if (currentTool.contains("Ластик")) {
-                        pixels[index] = Color.WHITE;
+                        if (pixels[index] != Color.WHITE) {
+                            pushUndo();
+                            pixels[index] = Color.WHITE;
+                            invalidate();
+                        }
                     } else if (currentTool.contains("Пипетка")) {
                         if (pixels[index] != Color.WHITE) {
                             currentColor = pixels[index];
                             refreshPalette(); refreshColorButton();
                         }
                     } else if (currentTool.contains("Заливка")) {
+                        pushUndo();
                         floodFill(col, row, pixels[index], currentColor);
+                        invalidate();
                     }
                 }
-                invalidate();
             }
         }
 
@@ -1155,89 +1271,6 @@ public class MainActivity extends Activity {
                 invalidate();
                 return true;
             }
-        }
-
-        @Override
-        protected void onDraw(Canvas canvas) {
-            super.onDraw(canvas);
-
-            int viewSize = Math.min(getWidth(), getHeight());
-            float cellSize = (float) viewSize / gridSize;
-
-            canvas.save();
-            canvas.translate(panX, panY);
-            canvas.scale(scaleFactor, scaleFactor);
-
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(Color.parseColor("#FFFDF9"));
-            canvas.drawRect(0, 0, viewSize, viewSize, paint);
-
-            if (showReference && referenceBitmap != null) {
-                Paint refPaint = new Paint();
-                refPaint.setAlpha(110);
-                refPaint.setFilterBitmap(false);
-                canvas.drawBitmap(referenceBitmap, null, new RectF(0, 0, viewSize, viewSize), refPaint);
-            }
-
-            if (isFreeDrawMode) {
-                for (PathElement pe : freePaths) {
-                    paint.setStyle(Paint.Style.STROKE);
-                    paint.setStrokeWidth(8f / scaleFactor);
-                    paint.setStrokeCap(Paint.Cap.ROUND);
-                    paint.setStrokeJoin(Paint.Join.ROUND);
-                    paint.setAntiAlias(true);
-                    paint.setColor(pe.color);
-                    canvas.drawPath(pe.path, paint);
-                }
-                if (currentFreePath != null) {
-                    paint.setStyle(Paint.Style.STROKE);
-                    paint.setStrokeWidth(8f / scaleFactor);
-                    paint.setStrokeCap(Paint.Cap.ROUND);
-                    paint.setStrokeJoin(Paint.Join.ROUND);
-                    paint.setAntiAlias(true);
-                    paint.setColor(currentTool.contains("Ластик") ? Color.parseColor("#FFFDF9") : currentColor);
-                    canvas.drawPath(currentFreePath, paint);
-                }
-            } else {
-                for (int r = 0; r < gridSize; r++) {
-                    for (int c = 0; c < gridSize; c++) {
-                        int idx = r * gridSize + c;
-                        float left = c * cellSize;
-                        float top = r * cellSize;
-                        RectF rect = new RectF(left, top, left + cellSize + 0.5f, top + cellSize + 0.5f);
-
-                        int pColor = pixels[idx] == 0 ? Color.TRANSPARENT : pixels[idx];
-                        
-                        paint.setStyle(Paint.Style.FILL);
-                        if (numberMode && pixels[idx] == Color.WHITE) {
-                            paint.setColor(Color.TRANSPARENT);
-                        } else {
-                            paint.setColor(pColor);
-                        }
-                        
-                        if (pColor != Color.TRANSPARENT || (numberMode && numberMap[idx] > 0)) {
-                            canvas.drawRect(rect, paint);
-                        }
-
-                        if (numberMode && numberMap[idx] > 0 && pixels[idx] == Color.WHITE) {
-                            paint.setAntiAlias(true);
-                            paint.setColor(Color.parseColor("#AD1457"));
-                            paint.setTextSize(cellSize * 0.45f);
-                            canvas.drawText(String.valueOf(numberMap[idx]), left + cellSize * 0.25f, top + cellSize * 0.7f, paint);
-                            paint.setAntiAlias(false);
-                        }
-
-                        if (showGrid) {
-                            paint.setStyle(Paint.Style.STROKE);
-                            paint.setColor(Color.parseColor("#F8BBD0"));
-                            paint.setStrokeWidth(1f);
-                            canvas.drawRect(rect, paint);
-                        }
-                    }
-                }
-            }
-
-            canvas.restore();
         }
     }
 }
