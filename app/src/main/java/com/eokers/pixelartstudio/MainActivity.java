@@ -1,3 +1,4 @@
+
 package com.eokers.pixelartstudio;
 
 import android.app.Activity;
@@ -594,7 +595,6 @@ public class MainActivity extends Activity {
         }
     }
 
-    // ДИАЛОГ ВЫБОРА СТИЛЯ КОНВЕРТАЦИИ
     private void showImportStyleDialog(Bitmap loaded) {
         String[] options = {
             "🎨 Мультяшный / Аниме (чистые яркие цвета, без грязи и теней)",
@@ -617,7 +617,6 @@ public class MainActivity extends Activity {
                 .show();
     }
 
-    // РЕЖИМ 1: ДЛЯ МУЛЬТИКОВ (Строгая постеризация, чистые цвета, черный контур)
     private void convertToNumberColoringCartoon(Bitmap bmp) {
         int w = bmp.getWidth();
         int h = bmp.getHeight();
@@ -679,4 +678,497 @@ public class MainActivity extends Activity {
                     int dr = Color.red(nc) - Color.red(c);
                     int dg = Color.green(nc) - Color.green(c);
                     int db = Color.blue(nc) - Color.blue(c);
-                    int dist = dr *
+                    int dist = dr * dr + dg * dg + db * db;
+                    if (dist < minDist) {
+                        minDist = dist;
+                        nearestIdx = k;
+                    }
+                }
+                numberMap[i] = nearestIdx + 1;
+            }
+        }
+
+        numberMode = true;
+        isFreeDrawMode = false;
+        currentColor = numberColors[0];
+        Arrays.fill(pixels, Color.WHITE);
+        refreshPalette();
+        buildUi();
+    }
+
+    private void convertToNumberColoringDetailed(Bitmap bmp) {
+        int w = bmp.getWidth();
+        int h = bmp.getHeight();
+        int[] srcPixels = new int[w * h];
+        bmp.getPixels(srcPixels, 0, w, 0, 0, w, h);
+
+        int[] gridRawColors = new int[gridSize * gridSize];
+
+        for (int r = 0; r < gridSize; r++) {
+            for (int c = 0; c < gridSize; c++) {
+                int srcX = Math.min((int) ((c + 0.5f) * w / gridSize), w - 1);
+                int srcY = Math.min((int) ((r + 0.5f) * h / gridSize), h - 1);
+
+                int p = srcPixels[srcY * w + srcX];
+                int alpha = Color.alpha(p);
+                int red = Color.red(p), green = Color.green(p), blue = Color.blue(p);
+
+                if (alpha < 20 || (red > 245 && green > 245 && blue > 245)) {
+                    gridRawColors[r * gridSize + c] = Color.TRANSPARENT;
+                } else {
+                    gridRawColors[r * gridSize + c] = Color.rgb(red, green, blue);
+                }
+            }
+        }
+
+        List<Integer> detailedPalette = new ArrayList<>();
+        for (int c : gridRawColors) {
+            if (c == Color.TRANSPARENT) continue;
+
+            int bestMatch = -1;
+            for (int i = 0; i < detailedPalette.size(); i++) {
+                int mc = detailedPalette.get(i);
+                int dr = Color.red(mc) - Color.red(c);
+                int dg = Color.green(mc) - Color.green(c);
+                int db = Color.blue(mc) - Color.blue(c);
+                if ((dr * dr + dg * dg + db * db) < 1200) {
+                    bestMatch = i;
+                    break;
+                }
+            }
+
+            if (bestMatch == -1 && detailedPalette.size() < 16) {
+                detailedPalette.add(c);
+            }
+        }
+
+        if (detailedPalette.isEmpty()) detailedPalette.add(Color.parseColor("#374151"));
+
+        numberColors = new int[detailedPalette.size()];
+        for (int i = 0; i < detailedPalette.size(); i++) numberColors[i] = detailedPalette.get(i);
+
+        numberMap = new int[gridSize * gridSize];
+        for (int i = 0; i < gridRawColors.length; i++) {
+            int c = gridRawColors[i];
+            if (c == Color.TRANSPARENT) {
+                numberMap[i] = 0;
+            } else {
+                int nearestIdx = 0;
+                int minDist = Integer.MAX_VALUE;
+                for (int k = 0; k < numberColors.length; k++) {
+                    int nc = numberColors[k];
+                    int dr = Color.red(nc) - Color.red(c);
+                    int dg = Color.green(nc) - Color.green(c);
+                    int db = Color.blue(nc) - Color.blue(c);
+                    int dist = dr * dr + dg * dg + db * db;
+                    if (dist < minDist) {
+                        minDist = dist;
+                        nearestIdx = k;
+                    }
+                }
+                numberMap[i] = nearestIdx + 1;
+            }
+        }
+
+        numberMode = true;
+        isFreeDrawMode = false;
+        currentColor = numberColors[0];
+        Arrays.fill(pixels, Color.WHITE);
+        refreshPalette();
+        buildUi();
+    }
+
+    private void convertToNumberColoring() {
+        List<Integer> colors = new ArrayList<>();
+        numberMap = new int[pixels.length];
+        
+        for (int i = 0; i < pixels.length; i++) {
+            int p = pixels[i];
+            if (Color.alpha(p) > 10 && p != Color.WHITE) {
+                int existingIdx = colors.indexOf(p);
+                if (existingIdx == -1) {
+                    colors.add(p);
+                    existingIdx = colors.size() - 1;
+                }
+                numberMap[i] = existingIdx + 1;
+            } else {
+                numberMap[i] = 0;
+            }
+        }
+
+        if (colors.isEmpty()) {
+            toast("Сначала нарисуйте что-нибудь");
+            return;
+        }
+
+        numberColors = new int[colors.size()];
+        for (int i = 0; i < colors.size(); i++) numberColors[i] = colors.get(i);
+
+        numberMode = true;
+        isFreeDrawMode = false;
+        currentColor = numberColors[0];
+        Arrays.fill(pixels, Color.WHITE);
+        refreshPalette();
+        buildUi();
+        toast("Режим раскраски включен!");
+    }
+
+    private static class PathElement {
+        Path path;
+        int color;
+        boolean isEraser;
+        PathElement(Path p, int c, boolean eraser) {
+            path = new Path(p);
+            color = c;
+            isEraser = eraser;
+        }
+    }
+
+    private static class Snapshot {
+        int[] pixels;
+        List<PathElement> paths;
+        boolean numberMode;
+        int[] numberMap;
+        int[] numberColors;
+        Snapshot(int[] px, List<PathElement> pt, boolean nm, int[] map, int[] cols) {
+            pixels = Arrays.copyOf(px, px.length);
+            paths = new ArrayList<>();
+            for (PathElement pe : pt) {
+                paths.add(new PathElement(pe.path, pe.color, pe.isEraser));
+            }
+            numberMode = nm;
+            numberMap = Arrays.copyOf(map, map.length);
+            numberColors = Arrays.copyOf(cols, cols.length);
+        }
+    }
+
+    private void toast(String text) {
+        Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
+    }
+
+    public static class PixelCatView extends View {
+        private boolean winking = false;
+        private Paint p = new Paint();
+
+        public PixelCatView(Context context) {
+            super(context);
+            p.setAntiAlias(false);
+        }
+
+        public void toggleAnimationState() {
+            winking = !winking;
+            invalidate();
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float width = getWidth();
+            float height = getHeight();
+            float ps = Math.min(width / 28f, height / 18f);
+
+            canvas.save();
+            canvas.translate((width - ps * 28f) / 2f, (height - ps * 18f) / 2f);
+
+            p.setStyle(Paint.Style.FILL);
+            p.setColor(Color.parseColor("#2C323B"));
+
+            canvas.drawRect(4 * ps, 2 * ps, 8 * ps, 8 * ps, p);
+            canvas.drawRect(20 * ps, 2 * ps, 24 * ps, 8 * ps, p);
+            canvas.drawRect(2 * ps, 7 * ps, 25 * ps, 16 * ps, p);
+            canvas.drawRect(23 * ps, 5 * ps, 26 * ps, 13 * ps, p);
+            canvas.drawRect(4 * ps, 15 * ps, 8 * ps, 18 * ps, p);
+            canvas.drawRect(9 * ps, 15 * ps, 12 * ps, 18 * ps, p);
+            canvas.drawRect(14 * ps, 15 * ps, 17 * ps, 18 * ps, p);
+            canvas.drawRect(19 * ps, 15 * ps, 23 * ps, 18 * ps, p);
+
+            p.setColor(Color.parseColor("#B0BEC5"));
+            canvas.drawRect(5 * ps, 3 * ps, 7 * ps, 7 * ps, p);
+            canvas.drawRect(21 * ps, 3 * ps, 23 * ps, 7 * ps, p);
+            canvas.drawRect(3 * ps, 8 * ps, 24 * ps, 15 * ps, p);
+            canvas.drawRect(24 * ps, 6 * ps, 25 * ps, 12 * ps, p);
+
+            p.setColor(Color.parseColor("#78909C"));
+            canvas.drawRect(10 * ps, 8 * ps, 12 * ps, 10 * ps, p);
+            canvas.drawRect(16 * ps, 8 * ps, 18 * ps, 10 * ps, p);
+            canvas.drawRect(24 * ps, 7 * ps, 25 * ps, 8 * ps, p);
+            canvas.drawRect(24 * ps, 10 * ps, 25 * ps, 11 * ps, p);
+
+            p.setColor(Color.parseColor("#212121"));
+            canvas.drawRect(7 * ps, 10 * ps, 9 * ps, 12 * ps, p);
+            canvas.drawRect(12 * ps, 11 * ps, 14 * ps, 13 * ps, p);
+            
+            if (!winking) {
+                canvas.drawRect(17 * ps, 10 * ps, 19 * ps, 12 * ps, p);
+            } else {
+                p.setStrokeWidth(ps * 1.3f);
+                canvas.drawLine(17 * ps, 11 * ps, 20 * ps, 11 * ps, p);
+            }
+
+            p.setColor(Color.parseColor("#FF80AB"));
+            canvas.drawRect(5 * ps, 12 * ps, 7 * ps, 14 * ps, p);
+            canvas.drawRect(19 * ps, 12 * ps, 21 * ps, 14 * ps, p);
+
+            canvas.restore();
+        }
+    }
+
+    public class PixelCanvas extends View {
+        private float scaleFactor = 1.0f;
+        private float panX = 0f;
+        private float panY = 0f;
+        private float lastTouchX;
+        private float lastTouchY;
+        private int activePointerId = MotionEvent.INVALID_POINTER_ID;
+
+        private ScaleGestureDetector scaleDetector;
+        private Paint paint;
+
+        public PixelCanvas(Context context) {
+            super(context);
+            scaleDetector = new ScaleGestureDetector(context, new ScaleListener());
+            paint = new Paint();
+            paint.setAntiAlias(false);
+            paint.setFilterBitmap(false);
+        }
+
+        @Override
+        public boolean onTouchEvent(MotionEvent event) {
+            scaleDetector.onTouchEvent(event);
+
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN: {
+                    final int pointerIndex = event.getActionIndex();
+                    lastTouchX = event.getX(pointerIndex);
+                    lastTouchY = event.getY(pointerIndex);
+                    activePointerId = event.getPointerId(pointerIndex);
+                    
+                    if (!scaleDetector.isInProgress()) {
+                        if (isFreeDrawMode) {
+                            pushUndo();
+                            currentFreePath = new Path();
+                            float canvasX = (event.getX(pointerIndex) - panX) / scaleFactor;
+                            float canvasY = (event.getY(pointerIndex) - panY) / scaleFactor;
+                            currentFreePath.moveTo(canvasX, canvasY);
+                        } else {
+                            handleDrawClick(event.getX(pointerIndex), event.getY(pointerIndex));
+                        }
+                    }
+                    break;
+                }
+
+                case MotionEvent.ACTION_MOVE: {
+                    if (scaleFactor > 1.0f && event.getPointerCount() > 1) {
+                        final int pointerIndex = event.findPointerIndex(activePointerId);
+                        if (pointerIndex != -1) {
+                            float x = event.getX(pointerIndex);
+                            float y = event.getY(pointerIndex);
+
+                            panX += x - lastTouchX;
+                            panY += y - lastTouchY;
+
+                            lastTouchX = x;
+                            lastTouchY = y;
+                            invalidate();
+                        }
+                    } else if (!scaleDetector.isInProgress()) {
+                        if (isFreeDrawMode && currentFreePath != null) {
+                            final int pointerIndex = event.findPointerIndex(activePointerId);
+                            if (pointerIndex != -1) {
+                                float canvasX = (event.getX(pointerIndex) - panX) / scaleFactor;
+                                float canvasY = (event.getY(pointerIndex) - panY) / scaleFactor;
+                                currentFreePath.lineTo(canvasX, canvasY);
+                                invalidate();
+                            }
+                        } else if (currentTool.contains("Карандаш") || currentTool.contains("Ластик")) {
+                            final int pointerIndex = event.findPointerIndex(activePointerId);
+                            if (pointerIndex != -1) {
+                                handleDrawClick(event.getX(pointerIndex), event.getY(pointerIndex));
+                            }
+                        }
+                    }
+                    break;
+                }
+
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL: {
+                    if (isFreeDrawMode && currentFreePath != null) {
+                        boolean eraser = currentTool.contains("Ластик");
+                        freePaths.add(new PathElement(currentFreePath, eraser ? Color.parseColor("#FFFDF9") : currentColor, eraser));
+                        currentFreePath = null;
+                        invalidate();
+                    }
+                    activePointerId = MotionEvent.INVALID_POINTER_ID;
+                    break;
+                }
+            }
+            return true;
+        }
+
+        private void handleDrawClick(float touchX, float touchY) {
+            int viewSize = Math.min(getWidth(), getHeight());
+            float cellSize = (float) viewSize / gridSize;
+
+            float canvasX = (touchX - panX) / scaleFactor;
+            float canvasY = (touchY - panY) / scaleFactor;
+
+            int col = (int) (canvasX / cellSize);
+            int row = (int) (canvasY / cellSize);
+
+            if (col >= 0 && col < gridSize && row >= 0 && row < gridSize) {
+                int index = row * gridSize + col;
+                pushUndo();
+
+                if (numberMode) {
+                    int expectedNum = numberMap[index];
+                    if (expectedNum > 0) {
+                        int expectedColor = numberColors[expectedNum - 1];
+                        if (currentColor == expectedColor) {
+                            pixels[index] = currentColor;
+                            refreshStatus();
+                        } else {
+                            if (System.currentTimeMillis() - lastWrongColorToast > 1500) {
+                                toast("Муся: нужен цвет №" + expectedNum);
+                                lastWrongColorToast = System.currentTimeMillis();
+                            }
+                        }
+                    }
+                } else {
+                    if (currentTool.contains("Карандаш")) {
+                        pixels[index] = currentColor;
+                    } else if (currentTool.contains("Ластик")) {
+                        pixels[index] = Color.WHITE;
+                    } else if (currentTool.contains("Пипетка")) {
+                        if (pixels[index] != Color.WHITE) {
+                            currentColor = pixels[index];
+                            refreshPalette(); refreshColorButton();
+                        }
+                    } else if (currentTool.contains("Заливка")) {
+                        floodFill(col, row, pixels[index], currentColor);
+                    }
+                }
+                invalidate();
+            }
+        }
+
+        private void floodFill(int col, int row, int targetColor, int replacementColor) {
+            if (targetColor == replacementColor) return;
+            ArrayDeque<Point> queue = new ArrayDeque<>();
+            queue.add(new Point(col, row));
+
+            while (!queue.isEmpty()) {
+                Point p = queue.poll();
+                int c = p.x, r = p.y;
+                if (c < 0 || c >= gridSize || r < 0 || r >= gridSize) continue;
+                int idx = r * gridSize + c;
+                if (pixels[idx] == targetColor) {
+                    pixels[idx] = replacementColor;
+                    queue.add(new Point(c + 1, r));
+                    queue.add(new Point(c - 1, r));
+                    queue.add(new Point(c, r + 1));
+                    queue.add(new Point(c, r - 1));
+                }
+            }
+        }
+
+        private class Point {
+            int x, y;
+            Point(int x, int y) { this.x = x; this.y = y; }
+        }
+
+        private class ScaleListener extends ScaleGestureDetector.SimpleOnScaleGestureListener {
+            @Override
+            public boolean onScale(ScaleGestureDetector detector) {
+                float factor = detector.getScaleFactor();
+                scaleFactor *= (1.0f + (factor - 1.0f) * 0.5f);
+                scaleFactor = Math.max(1.0f, Math.min(scaleFactor, 8.0f));
+                invalidate();
+                return true;
+            }
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+
+            int viewSize = Math.min(getWidth(), getHeight());
+            float cellSize = (float) viewSize / gridSize;
+
+            canvas.save();
+            canvas.translate(panX, panY);
+            canvas.scale(scaleFactor, scaleFactor);
+
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Color.parseColor("#FFFDF9"));
+            canvas.drawRect(0, 0, viewSize, viewSize, paint);
+
+            // Четкий пиксельный референс под сеткой без мыла
+            if (showReference && referenceBitmap != null) {
+                Paint refPaint = new Paint();
+                refPaint.setAlpha(110);
+                refPaint.setFilterBitmap(false);
+                canvas.drawBitmap(referenceBitmap, null, new RectF(0, 0, viewSize, viewSize), refPaint);
+            }
+
+            if (isFreeDrawMode) {
+                for (PathElement pe : freePaths) {
+                    paint.setStyle(Paint.Style.STROKE);
+                    paint.setStrokeWidth(8f / scaleFactor);
+                    paint.setStrokeCap(Paint.Cap.ROUND);
+                    paint.setStrokeJoin(Paint.Join.ROUND);
+                    paint.setAntiAlias(true);
+                    paint.setColor(pe.color);
+                    canvas.drawPath(pe.path, paint);
+                }
+                if (currentFreePath != null) {
+                    paint.setStyle(Paint.Style.STROKE);
+                    paint.setStrokeWidth(8f / scaleFactor);
+                    paint.setStrokeCap(Paint.Cap.ROUND);
+                    paint.setStrokeJoin(Paint.Join.ROUND);
+                    paint.setAntiAlias(true);
+                    paint.setColor(currentTool.contains("Ластик") ? Color.parseColor("#FFFDF9") : currentColor);
+                    canvas.drawPath(currentFreePath, paint);
+                }
+            } else {
+                for (int r = 0; r < gridSize; r++) {
+                    for (int c = 0; c < gridSize; c++) {
+                        int idx = r * gridSize + c;
+                        float left = c * cellSize;
+                        float top = r * cellSize;
+                        RectF rect = new RectF(left, top, left + cellSize + 0.5f, top + cellSize + 0.5f);
+
+                        int pColor = pixels[idx] == 0 ? Color.TRANSPARENT : pixels[idx];
+                        
+                        paint.setStyle(Paint.Style.FILL);
+                        if (numberMode && pixels[idx] == Color.WHITE) {
+                            paint.setColor(Color.TRANSPARENT);
+                        } else {
+                            paint.setColor(pColor);
+                        }
+                        
+                        if (pColor != Color.TRANSPARENT || (numberMode && numberMap[idx] > 0)) {
+                            canvas.drawRect(rect, paint);
+                        }
+
+                        if (numberMode && numberMap[idx] > 0 && pixels[idx] == Color.WHITE) {
+                            paint.setAntiAlias(true);
+                            paint.setColor(Color.parseColor("#AD1457"));
+                            paint.setTextSize(cellSize * 0.45f);
+                            canvas.drawText(String.valueOf(numberMap[idx]), left + cellSize * 0.25f, top + cellSize * 0.7f, paint);
+                            paint.setAntiAlias(false);
+                        }
+
+                        if (showGrid) {
+                            paint.setStyle(Paint.Style.STROKE);
+                            paint.setColor(Color.parseColor("#F8BBD0"));
+                            paint.setStrokeWidth(1f);
+                            canvas.drawRect(rect, paint);
+                        }
+                    }
+                }
+            }
+
+            canvas.restore();
+        }
+    }
+}
