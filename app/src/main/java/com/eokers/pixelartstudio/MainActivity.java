@@ -1040,12 +1040,8 @@ public class MainActivity extends Activity {
                     }
                 } else {
                     Paint numPaint = new Paint();
-                    numPaint.setAntiAlias(true);
-                    numPaint.setColor(Color.parseColor("#AD1457"));
-                    numPaint.setTextAlign(Paint.Align.CENTER);
-                    numPaint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
 
-                    // Оптимизация Viewport: отрисовываем только видимые ячейки для идеальной скорости
+                    // Viewport-оптимизация: рендерим только видимую область
                     float visibleLeft = -panX / scaleFactor;
                     float visibleTop = -panY / scaleFactor;
                     float visibleRight = visibleLeft + viewSize / scaleFactor;
@@ -1063,32 +1059,37 @@ public class MainActivity extends Activity {
                             int idx = r * gridSize + c;
                             float left = c * cellSize;
                             float top = r * cellSize;
+                            RectF rect = new RectF(left, top, left + cellSize + 0.5f, top + cellSize + 0.5f);
 
                             int pColor = pixels[idx] == 0 ? Color.TRANSPARENT : pixels[idx];
 
+                            paint.setStyle(Paint.Style.FILL);
                             if (numberMode && pixels[idx] == Color.WHITE) {
-                                // Пропускаем закрашивание белым
-                            } else if (pColor != Color.TRANSPARENT) {
-                                paint.setStyle(Paint.Style.FILL);
+                                paint.setColor(Color.TRANSPARENT);
+                            } else {
                                 paint.setColor(pColor);
-                                cacheCanvas.drawRect(left, top, left + cellSize + 0.5f, top + cellSize + 0.5f, paint);
                             }
 
-                            // Красивые классические шрифты цифр
+                            if (pColor != Color.TRANSPARENT || (numberMode && numberMap.length > idx && numberMap[idx] > 0)) {
+                                cacheCanvas.drawRect(rect, paint);
+                            }
+
+                            // Оригинальный точный дизайн и положение цифр
                             if (numberMode && numberMap.length > idx && numberMap[idx] > 0 && pixels[idx] == Color.WHITE) {
-                                if (scaledCellSize > 8f) { // Показывать цифры только если размер на экране позволяет их прочесть
-                                    numPaint.setTextSize(cellSize * 0.5f);
-                                    Paint.FontMetrics fm = numPaint.getFontMetrics();
-                                    float baseline = (top + cellSize / 2f) - (fm.ascent + fm.descent) / 2f;
-                                    cacheCanvas.drawText(String.valueOf(numberMap[idx]), left + cellSize / 2f, baseline, numPaint);
+                                if (scaledCellSize > 3.5f) {
+                                    numPaint.setAntiAlias(true);
+                                    numPaint.setColor(Color.parseColor("#AD1457"));
+                                    numPaint.setTextSize(cellSize * 0.45f);
+                                    cacheCanvas.drawText(String.valueOf(numberMap[idx]), left + cellSize * 0.25f, top + cellSize * 0.7f, numPaint);
+                                    numPaint.setAntiAlias(false);
                                 }
                             }
 
-                            if (showGrid && scaledCellSize > 3f) {
+                            if (showGrid && scaledCellSize > 2f) {
                                 paint.setStyle(Paint.Style.STROKE);
-                                paint.setColor(Color.parseColor("#10F8BBD0"));
+                                paint.setColor(Color.parseColor("#F8BBD0"));
                                 paint.setStrokeWidth(1f);
-                                cacheCanvas.drawRect(left, top, left + cellSize + 0.5f, top + cellSize + 0.5f, paint);
+                                cacheCanvas.drawRect(rect, paint);
                             }
                         }
                     }
