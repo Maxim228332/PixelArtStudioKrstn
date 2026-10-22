@@ -598,7 +598,6 @@ public class MainActivity extends Activity {
         }
     }
 
-    // ИСПРАВЛЕННАЯ СИСТЕМА КОНВЕРТАЦИИ С СТРОГИМ 1-К-1 СООТВЕТСТВИЕМ ЦВЕТОВ И НОМЕРОВ
     private void convertToNumberColoringFromBitmap(Bitmap bmp) {
         List<Integer> colors = new ArrayList<>();
         int w = bmp.getWidth();
@@ -995,6 +994,13 @@ public class MainActivity extends Activity {
             paint.setColor(Color.WHITE);
             canvas.drawRect(0, 0, viewSize, viewSize, paint);
 
+            // Рендер полупрозрачного референса под сеткой
+            if (showReference && referenceBitmap != null) {
+                Paint alphaPaint = new Paint();
+                alphaPaint.setAlpha(110);
+                canvas.drawBitmap(referenceBitmap, null, new RectF(0, 0, viewSize, viewSize), alphaPaint);
+            }
+
             if (isFreeDrawMode) {
                 for (PathElement pe : freePaths) {
                     paint.setStyle(Paint.Style.STROKE);
@@ -1023,11 +1029,16 @@ public class MainActivity extends Activity {
                         RectF rect = new RectF(left, top, left + cellSize + 0.5f, top + cellSize + 0.5f);
 
                         int pColor = pixels[idx] == 0 ? Color.WHITE : pixels[idx];
+                        
                         paint.setStyle(Paint.Style.FILL);
-                        paint.setColor(pColor);
+                        if (numberMode && pixels[idx] == Color.WHITE) {
+                            paint.setColor(Color.argb(160, 255, 255, 255));
+                        } else {
+                            paint.setColor(pColor);
+                        }
                         canvas.drawRect(rect, paint);
 
-                        if (numberMode && numberMap[idx] > 0 && pColor == Color.WHITE) {
+                        if (numberMode && numberMap[idx] > 0 && pixels[idx] == Color.WHITE) {
                             paint.setAntiAlias(true);
                             paint.setColor(Color.parseColor("#AD1457"));
                             paint.setTextSize(cellSize * 0.45f);
