@@ -9,6 +9,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
@@ -587,15 +588,13 @@ public class MainActivity extends Activity {
         startActivityForResult(intent, REQ_OPEN_IMAGE);
     }
 
-    // РЕАЛЬНЫЙ ЭКСПОРТ И СОХРАНЕНИЕ PNG В ГАЛЕРЕЮ ТЕЛЕФОНА
     private void savePng() {
         try {
-            int exportSize = 1024; // Высокое разрешение экспортируемой картинки
+            int exportSize = 1024;
             Bitmap exportBmp = Bitmap.createBitmap(exportSize, exportSize, Bitmap.Config.ARGB_8888);
             Canvas canvas = new Canvas(exportBmp);
             float cellSize = (float) exportSize / gridSize;
 
-            // Заливка фоном
             Paint paint = new Paint();
             paint.setStyle(Paint.Style.FILL);
             paint.setColor(Color.parseColor("#FFFDF9"));
@@ -609,9 +608,7 @@ public class MainActivity extends Activity {
                     paint.setStrokeJoin(Paint.Join.ROUND);
                     paint.setAntiAlias(true);
                     paint.setColor(pe.color);
-                    // Масштабируем пути под размер экспорта
                     Path scaledPath = new Path(pe.path);
-                    scaledPath.transform(android.graphics.Matrix());
                     canvas.drawPath(scaledPath, paint);
                 }
             } else {
@@ -627,7 +624,6 @@ public class MainActivity extends Activity {
                 }
             }
 
-            // Сохранение через MediaStore в галерею
             String fileName = "PixelArt_" + System.currentTimeMillis() + ".png";
             OutputStream fos = null;
             Uri imageUri = null;
@@ -647,7 +643,6 @@ public class MainActivity extends Activity {
                 File imageFile = new File(imagesDir, fileName);
                 fos = new FileOutputStream(imageFile);
                 imageUri = Uri.fromFile(imageFile);
-                // Сканируем для появления в галерее на старых версиях
                 Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, imageUri);
                 sendBroadcast(mediaScanIntent);
             }
