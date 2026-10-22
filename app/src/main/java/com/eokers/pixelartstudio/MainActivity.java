@@ -586,7 +586,8 @@ public class MainActivity extends Activity {
             try (InputStream stream = getContentResolver().openInputStream(data.getData())) {
                 Bitmap loaded = BitmapFactory.decodeStream(stream);
                 if (loaded != null) {
-                    referenceBitmap = Bitmap.createScaledBitmap(loaded, gridSize, gridSize, true);
+                    // ИСПРАВЛЕНО: используем `false` (Nearest Neighbor), чтобы пиксели и сетка не размывались в полосы!
+                    referenceBitmap = Bitmap.createScaledBitmap(loaded, gridSize, gridSize, false);
                     convertToNumberColoringFromBitmap(referenceBitmap);
                     showReference = true;
                     if (pixelCanvas != null) pixelCanvas.invalidate();
@@ -598,7 +599,6 @@ public class MainActivity extends Activity {
         }
     }
 
-    // ИСПРАВЛЕННЫЙ МЕТОД: БЕЛЫЙ ЦВЕТ ТЕПЕРЬ ПОЛУЧАЕТ НОМЕР И УЧИТЫВАЕТСЯ В РАСКРАСКЕ
     private void convertToNumberColoringFromBitmap(Bitmap bmp) {
         List<Integer> colors = new ArrayList<>();
         int w = bmp.getWidth();
@@ -614,7 +614,6 @@ public class MainActivity extends Activity {
                 int srcY = r * h / gridSize;
                 int p = bmpPixels[srcY * w + srcX];
 
-                // Обрабатываем все пиксели изображения (включая белый цвет, исключая полностью прозрачные)
                 if (Color.alpha(p) > 20) {
                     int matchedIndex = -1;
                     
@@ -996,7 +995,7 @@ public class MainActivity extends Activity {
             paint.setColor(Color.parseColor("#FFFDF9"));
             canvas.drawRect(0, 0, viewSize, viewSize, paint);
 
-            // Рендер полупрозрачного референса под сеткой (альфа 100 для красивой видимости)
+            // Рендер полупрозрачного референса под сеткой
             if (showReference && referenceBitmap != null) {
                 Paint alphaPaint = new Paint();
                 alphaPaint.setAlpha(100);
@@ -1034,7 +1033,6 @@ public class MainActivity extends Activity {
                         
                         paint.setStyle(Paint.Style.FILL);
                         if (numberMode && pixels[idx] == Color.WHITE) {
-                            // Полупрозрачный фон для ячеек, чтобы просвечивал референс
                             paint.setColor(Color.argb(140, 255, 253, 249));
                         } else {
                             paint.setColor(pColor);
