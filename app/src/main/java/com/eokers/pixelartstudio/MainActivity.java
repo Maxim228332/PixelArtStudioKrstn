@@ -559,16 +559,12 @@ public class MainActivity extends Activity {
 
     private void toggleReference() {
         showReference = !showReference;
-        buildUrlOrInvalidate();
-    }
-
-    private void toggleGrid() {
-        showGrid = !showGrid;
         buildUi();
         if (pixelCanvas != null) pixelCanvas.invalidate();
     }
 
-    private void buildUrlOrInvalidate() {
+    private void toggleGrid() {
+        showGrid = !showGrid;
         buildUi();
         if (pixelCanvas != null) pixelCanvas.invalidate();
     }
@@ -602,7 +598,6 @@ public class MainActivity extends Activity {
         }
     }
 
-    // ИДЕАЛЬНО ТОЧНЫЙ МЕТОД КОНВЕРТАЦИИ КАРТИНКИ ДЛЯ РАСКРАСКИ
     private void convertToNumberColoringFromBitmap(Bitmap bmp) {
         List<Integer> colors = new ArrayList<>();
         int w = bmp.getWidth();
@@ -618,17 +613,15 @@ public class MainActivity extends Activity {
                 int srcY = r * h / gridSize;
                 int p = bmpPixels[srcY * w + srcX];
 
-                // Отсекаем только полностью прозрачные пиксели
-                if (Color.alpha(p) > 10) {
+                if (Color.alpha(p) > 20) {
                     int matchedIndex = -1;
                     
-                    // Ищем точное совпадение или очень близкий оттенок
                     for (int i = 0; i < colors.size(); i++) {
                         int existingColor = colors.get(i);
                         int dr = Color.red(existingColor) - Color.red(p);
                         int dg = Color.green(existingColor) - Color.green(p);
                         int db = Color.blue(existingColor) - Color.blue(p);
-                        if ((dr * dr + dg * dg + db * db) < 800) {
+                        if ((dr * dr + dg * dg + db * db) < 1200) {
                             matchedIndex = i;
                             break;
                         }
@@ -755,4 +748,318 @@ public class MainActivity extends Activity {
             p.setAntiAlias(false);
         }
 
-        public
+        public void toggleAnimationState() {
+            winking = !winking;
+            invalidate();
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float width = getWidth();
+            float height = getHeight();
+            float ps = Math.min(width / 28f, height / 18f);
+
+            canvas.save();
+            canvas.translate((width - ps * 28f) / 2f, (height - ps * 18f) / 2f);
+
+            p.setStyle(Paint.Style.FILL);
+            p.setColor(Color.parseColor("#2C323B"));
+
+            canvas.drawRect(4 * ps, 2 * ps, 8 * ps, 8 * ps, p);
+            canvas.drawRect(20 * ps, 2 * ps, 24 * ps, 8 * ps, p);
+            canvas.drawRect(2 * ps, 7 * ps, 25 * ps, 16 * ps, p);
+            canvas.drawRect(23 * ps, 5 * ps, 26 * ps, 13 * ps, p);
+            canvas.drawRect(4 * ps, 15 * ps, 8 * ps, 18 * ps, p);
+            canvas.drawRect(9 * ps, 15 * ps, 12 * ps, 18 * ps, p);
+            canvas.drawRect(14 * ps, 15 * ps, 17 * ps, 18 * ps, p);
+            canvas.drawRect(19 * ps, 15 * ps, 23 * ps, 18 * ps, p);
+
+            p.setColor(Color.parseColor("#B0BEC5"));
+            canvas.drawRect(5 * ps, 3 * ps, 7 * ps, 7 * ps, p);
+            canvas.drawRect(21 * ps, 3 * ps, 23 * ps, 7 * ps, p);
+            canvas.drawRect(3 * ps, 8 * ps, 24 * ps, 15 * ps, p);
+            canvas.drawRect(24 * ps, 6 * ps, 25 * ps, 12 * ps, p);
+
+            p.setColor(Color.parseColor("#78909C"));
+            canvas.drawRect(10 * ps, 8 * ps, 12 * ps, 10 * ps, p);
+            canvas.drawRect(16 * ps, 8 * ps, 18 * ps, 10 * ps, p);
+            canvas.drawRect(24 * ps, 7 * ps, 25 * ps, 8 * ps, p);
+            canvas.drawRect(24 * ps, 10 * ps, 25 * ps, 11 * ps, p);
+
+            p.setColor(Color.parseColor("#212121"));
+            canvas.drawRect(7 * ps, 10 * ps, 9 * ps, 12 * ps, p);
+            canvas.drawRect(12 * ps, 11 * ps, 14 * ps, 13 * ps, p);
+            
+            if (!winking) {
+                canvas.drawRect(17 * ps, 10 * ps, 19 * ps, 12 * ps, p);
+            } else {
+                p.setStrokeWidth(ps * 1.3f);
+                canvas.drawLine(17 * ps, 11 * ps, 20 * ps, 11 * ps, p);
+            }
+
+            p.setColor(Color.parseColor("#FF80AB"));
+            canvas.drawRect(5 * ps, 12 * ps, 7 * ps, 14 * ps, p);
+            canvas.drawRect(19 * ps, 12 * ps, 21 * ps, 14 * ps, p);
+
+            canvas.restore();
+        }
+    }
+
+    public class PixelCanvas extends View {
+        private float scaleFactor = 1.0f;
+        private float panX = 0f;
+        private float panY = 0f;
+        private float lastTouchX;
+        private float lastTouchY;
+        private int activePointerId = MotionEvent.INVALID_POINTER_ID;
+
+        private ScaleGestureDetector scaleDetector;
+        private Paint paint;
+
+        public PixelCanvas(Context context) {
+            super(context);
+            scaleDetector = new ScaleGestureDetector(context, new ScaleListener());
+            paint = new Paint();
+            paint.setAntiAlias(false);
+        }
+
+        @Override
+        public boolean onTouchEvent(MotionEvent event) {
+            scaleDetector.onTouchEvent(event);
+
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN: {
+                    final int pointerIndex = event.getActionIndex();
+                    lastTouchX = event.getX(pointerIndex);
+                    lastTouchY = event.getY(pointerIndex);
+                    activePointerId = event.getPointerId(pointerIndex);
+                    
+                    if (!scaleDetector.isInProgress()) {
+                        if (isFreeDrawMode) {
+                            pushUndo();
+                            currentFreePath = new Path();
+                            float canvasX = (event.getX(pointerIndex) - panX) / scaleFactor;
+                            float canvasY = (event.getY(pointerIndex) - panY) / scaleFactor;
+                            currentFreePath.moveTo(canvasX, canvasY);
+                        } else {
+                            handleDrawClick(event.getX(pointerIndex), event.getY(pointerIndex));
+                        }
+                    }
+                    break;
+                }
+
+                case MotionEvent.ACTION_MOVE: {
+                    if (scaleFactor > 1.0f && event.getPointerCount() > 1) {
+                        final int pointerIndex = event.findPointerIndex(activePointerId);
+                        if (pointerIndex != -1) {
+                            float x = event.getX(pointerIndex);
+                            float y = event.getY(pointerIndex);
+
+                            panX += x - lastTouchX;
+                            panY += y - lastTouchY;
+
+                            lastTouchX = x;
+                            lastTouchY = y;
+                            invalidate();
+                        }
+                    } else if (!scaleDetector.isInProgress()) {
+                        if (isFreeDrawMode && currentFreePath != null) {
+                            final int pointerIndex = event.findPointerIndex(activePointerId);
+                            if (pointerIndex != -1) {
+                                float canvasX = (event.getX(pointerIndex) - panX) / scaleFactor;
+                                float canvasY = (event.getY(pointerIndex) - panY) / scaleFactor;
+                                currentFreePath.lineTo(canvasX, canvasY);
+                                invalidate();
+                            }
+                        } else if (currentTool.contains("Карандаш") || currentTool.contains("Ластик")) {
+                            final int pointerIndex = event.findPointerIndex(activePointerId);
+                            if (pointerIndex != -1) {
+                                handleDrawClick(event.getX(pointerIndex), event.getY(pointerIndex));
+                            }
+                        }
+                    }
+                    break;
+                }
+
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL: {
+                    if (isFreeDrawMode && currentFreePath != null) {
+                        boolean eraser = currentTool.contains("Ластик");
+                        freePaths.add(new PathElement(currentFreePath, eraser ? Color.parseColor("#FFFDF9") : currentColor, eraser));
+                        currentFreePath = null;
+                        invalidate();
+                    }
+                    activePointerId = MotionEvent.INVALID_POINTER_ID;
+                    break;
+                }
+            }
+            return true;
+        }
+
+        private void handleDrawClick(float touchX, float touchY) {
+            int viewSize = Math.min(getWidth(), getHeight());
+            float cellSize = (float) viewSize / gridSize;
+
+            float canvasX = (touchX - panX) / scaleFactor;
+            float canvasY = (touchY - panY) / scaleFactor;
+
+            int col = (int) (canvasX / cellSize);
+            int row = (int) (canvasY / cellSize);
+
+            if (col >= 0 && col < gridSize && row >= 0 && row < gridSize) {
+                int index = row * gridSize + col;
+                pushUndo();
+
+                if (numberMode) {
+                    int expectedNum = numberMap[index];
+                    if (expectedNum > 0) {
+                        int expectedColor = numberColors[expectedNum - 1];
+                        if (currentColor == expectedColor) {
+                            pixels[index] = currentColor;
+                            refreshStatus();
+                        } else {
+                            if (System.currentTimeMillis() - lastWrongColorToast > 1500) {
+                                toast("Муся: нужен цвет №" + expectedNum);
+                                lastWrongColorToast = System.currentTimeMillis();
+                            }
+                        }
+                    }
+                } else {
+                    if (currentTool.contains("Карандаш")) {
+                        pixels[index] = currentColor;
+                    } else if (currentTool.contains("Ластик")) {
+                        pixels[index] = Color.WHITE;
+                    } else if (currentTool.contains("Пипетка")) {
+                        if (pixels[index] != Color.WHITE) {
+                            currentColor = pixels[index];
+                            refreshPalette(); refreshColorButton();
+                        }
+                    } else if (currentTool.contains("Заливка")) {
+                        floodFill(col, row, pixels[index], currentColor);
+                    }
+                }
+                invalidate();
+            }
+        }
+
+        private void floodFill(int col, int row, int targetColor, int replacementColor) {
+            if (targetColor == replacementColor) return;
+            ArrayDeque<Point> queue = new ArrayDeque<>();
+            queue.add(new Point(col, row));
+
+            while (!queue.isEmpty()) {
+                Point p = queue.poll();
+                int c = p.x, r = p.y;
+                if (c < 0 || c >= gridSize || r < 0 || r >= gridSize) continue;
+                int idx = r * gridSize + c;
+                if (pixels[idx] == targetColor) {
+                    pixels[idx] = replacementColor;
+                    queue.add(new Point(c + 1, r));
+                    queue.add(new Point(c - 1, r));
+                    queue.add(new Point(c, r + 1));
+                    queue.add(new Point(c, r - 1));
+                }
+            }
+        }
+
+        private class Point {
+            int x, y;
+            Point(int x, int y) { this.x = x; this.y = y; }
+        }
+
+        private class ScaleListener extends ScaleGestureDetector.SimpleOnScaleGestureListener {
+            @Override
+            public boolean onScale(ScaleGestureDetector detector) {
+                float factor = detector.getScaleFactor();
+                scaleFactor *= (1.0f + (factor - 1.0f) * 0.5f);
+                scaleFactor = Math.max(1.0f, Math.min(scaleFactor, 8.0f));
+                invalidate();
+                return true;
+            }
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+
+            int viewSize = Math.min(getWidth(), getHeight());
+            float cellSize = (float) viewSize / gridSize;
+
+            canvas.save();
+            canvas.translate(panX, panY);
+            canvas.scale(scaleFactor, scaleFactor);
+
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Color.parseColor("#FFFDF9"));
+            canvas.drawRect(0, 0, viewSize, viewSize, paint);
+
+            // Рендер полупрозрачного референса под сеткой (альфа 100)
+            if (showReference && referenceBitmap != null) {
+                Paint alphaPaint = new Paint();
+                alphaPaint.setAlpha(100);
+                canvas.drawBitmap(referenceBitmap, null, new RectF(0, 0, viewSize, viewSize), alphaPaint);
+            }
+
+            if (isFreeDrawMode) {
+                for (PathElement pe : freePaths) {
+                    paint.setStyle(Paint.Style.STROKE);
+                    paint.setStrokeWidth(8f / scaleFactor);
+                    paint.setStrokeCap(Paint.Cap.ROUND);
+                    paint.setStrokeJoin(Paint.Join.ROUND);
+                    paint.setAntiAlias(true);
+                    paint.setColor(pe.color);
+                    canvas.drawPath(pe.path, paint);
+                }
+                if (currentFreePath != null) {
+                    paint.setStyle(Paint.Style.STROKE);
+                    paint.setStrokeWidth(8f / scaleFactor);
+                    paint.setStrokeCap(Paint.Cap.ROUND);
+                    paint.setStrokeJoin(Paint.Join.ROUND);
+                    paint.setAntiAlias(true);
+                    paint.setColor(currentTool.contains("Ластик") ? Color.parseColor("#FFFDF9") : currentColor);
+                    canvas.drawPath(currentFreePath, paint);
+                }
+            } else {
+                for (int r = 0; r < gridSize; r++) {
+                    for (int c = 0; c < gridSize; c++) {
+                        int idx = r * gridSize + c;
+                        float left = c * cellSize;
+                        float top = r * cellSize;
+                        RectF rect = new RectF(left, top, left + cellSize + 0.5f, top + cellSize + 0.5f);
+
+                        int pColor = pixels[idx] == 0 ? Color.TRANSPARENT : pixels[idx];
+                        
+                        paint.setStyle(Paint.Style.FILL);
+                        if (numberMode && pixels[idx] == Color.WHITE) {
+                            paint.setColor(Color.argb(140, 255, 253, 249));
+                        } else {
+                            paint.setColor(pColor);
+                        }
+                        
+                        if (pColor != Color.TRANSPARENT || (numberMode && numberMap[idx] > 0)) {
+                            canvas.drawRect(rect, paint);
+                        }
+
+                        if (numberMode && numberMap[idx] > 0 && pixels[idx] == Color.WHITE) {
+                            paint.setAntiAlias(true);
+                            paint.setColor(Color.parseColor("#AD1457"));
+                            paint.setTextSize(cellSize * 0.45f);
+                            canvas.drawText(String.valueOf(numberMap[idx]), left + cellSize * 0.25f, top + cellSize * 0.7f, paint);
+                            paint.setAntiAlias(false);
+                        }
+
+                        if (showGrid) {
+                            paint.setStyle(Paint.Style.STROKE);
+                            paint.setColor(Color.parseColor("#F8BBD0"));
+                            paint.setStrokeWidth(1f);
+                            canvas.drawRect(rect, paint);
+                        }
+                    }
+                }
+            }
+
+            canvas.restore();
+        }
+    }
+}
