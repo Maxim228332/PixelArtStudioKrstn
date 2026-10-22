@@ -598,6 +598,7 @@ public class MainActivity extends Activity {
         }
     }
 
+    // ИСПРАВЛЕННЫЙ МЕТОД: БЕЛЫЙ ЦВЕТ ТЕПЕРЬ ПОЛУЧАЕТ НОМЕР И УЧИТЫВАЕТСЯ В РАСКРАСКЕ
     private void convertToNumberColoringFromBitmap(Bitmap bmp) {
         List<Integer> colors = new ArrayList<>();
         int w = bmp.getWidth();
@@ -613,7 +614,8 @@ public class MainActivity extends Activity {
                 int srcY = r * h / gridSize;
                 int p = bmpPixels[srcY * w + srcX];
 
-                if (Color.alpha(p) > 20 && !(Color.red(p) > 245 && Color.green(p) > 245 && Color.blue(p) > 245)) {
+                // Обрабатываем все пиксели изображения (включая белый цвет, исключая полностью прозрачные)
+                if (Color.alpha(p) > 20) {
                     int matchedIndex = -1;
                     
                     for (int i = 0; i < colors.size(); i++) {
@@ -991,13 +993,13 @@ public class MainActivity extends Activity {
             canvas.scale(scaleFactor, scaleFactor);
 
             paint.setStyle(Paint.Style.FILL);
-            paint.setColor(Color.WHITE);
+            paint.setColor(Color.parseColor("#FFFDF9"));
             canvas.drawRect(0, 0, viewSize, viewSize, paint);
 
-            // Рендер полупрозрачного референса под сеткой
+            // Рендер полупрозрачного референса под сеткой (альфа 100 для красивой видимости)
             if (showReference && referenceBitmap != null) {
                 Paint alphaPaint = new Paint();
-                alphaPaint.setAlpha(110);
+                alphaPaint.setAlpha(100);
                 canvas.drawBitmap(referenceBitmap, null, new RectF(0, 0, viewSize, viewSize), alphaPaint);
             }
 
@@ -1028,15 +1030,19 @@ public class MainActivity extends Activity {
                         float top = r * cellSize;
                         RectF rect = new RectF(left, top, left + cellSize + 0.5f, top + cellSize + 0.5f);
 
-                        int pColor = pixels[idx] == 0 ? Color.WHITE : pixels[idx];
+                        int pColor = pixels[idx] == 0 ? Color.TRANSPARENT : pixels[idx];
                         
                         paint.setStyle(Paint.Style.FILL);
                         if (numberMode && pixels[idx] == Color.WHITE) {
-                            paint.setColor(Color.argb(160, 255, 255, 255));
+                            // Полупрозрачный фон для ячеек, чтобы просвечивал референс
+                            paint.setColor(Color.argb(140, 255, 253, 249));
                         } else {
                             paint.setColor(pColor);
                         }
-                        canvas.drawRect(rect, paint);
+                        
+                        if (pColor != Color.TRANSPARENT || (numberMode && numberMap[idx] > 0)) {
+                            canvas.drawRect(rect, paint);
+                        }
 
                         if (numberMode && numberMap[idx] > 0 && pixels[idx] == Color.WHITE) {
                             paint.setAntiAlias(true);
