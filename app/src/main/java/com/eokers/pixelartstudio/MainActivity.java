@@ -1042,7 +1042,6 @@ public class MainActivity extends Activity {
                     Paint numPaint = new Paint();
                     numPaint.setAntiAlias(false);
                     numPaint.setColor(Color.parseColor("#AD1457"));
-                    numPaint.setTextSize(cellSize * 0.45f);
 
                     for (int r = 0; r < gridSize; r++) {
                         for (int c = 0; c < gridSize; c++) {
@@ -1060,11 +1059,13 @@ public class MainActivity extends Activity {
                                 cacheCanvas.drawRect(left, top, left + cellSize + 0.5f, top + cellSize + 0.5f, paint);
                             }
 
-                            if (numberMode && numberMap.length > idx && numberMap[idx] > 0 && pixels[idx] == Color.WHITE && cellSize > 14) {
-                                cacheCanvas.drawText(String.valueOf(numberMap[idx]), left + cellSize * 0.25f, top + cellSize * 0.7f, numPaint);
+                            // Умный показ цифр даже на ультра-сетках (128x128)
+                            if (numberMode && numberMap.length > idx && numberMap[idx] > 0 && pixels[idx] == Color.WHITE && cellSize > 3.5f) {
+                                numPaint.setTextSize(Math.max(8f, cellSize * 0.55f));
+                                cacheCanvas.drawText(String.valueOf(numberMap[idx]), left + cellSize * 0.20f, top + cellSize * 0.75f, numPaint);
                             }
 
-                            if (showGrid && cellSize > 6) {
+                            if (showGrid && cellSize > 2f) {
                                 paint.setStyle(Paint.Style.STROKE);
                                 paint.setColor(Color.parseColor("#F8BBD0"));
                                 paint.setStrokeWidth(1f);
