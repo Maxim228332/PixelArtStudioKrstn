@@ -590,7 +590,7 @@ public class MainActivity extends Activity {
                     convertToNumberColoringFromBitmap(referenceBitmap);
                     showReference = true;
                     if (pixelCanvas != null) pixelCanvas.invalidate();
-                    toast("Картинка переведена в раскраску!");
+                    toast("Чистая раскраска создана!");
                 }
             } catch (Exception e) {
                 toast("Ошибка чтения файла");
@@ -598,14 +598,14 @@ public class MainActivity extends Activity {
         }
     }
 
-    // ИСПРАВЛЕННЫЙ АЛГОРИТМ: ИГНОРИРУЕТ ВНЕШНИЙ СЕРЫЙ/БЕЛЫЙ ФОН
+    // ИДЕАЛЬНЫЙ АЛГОРИТМ: СТРОГАЯ ПРИВЯЗКА К ЯРКИМ ЧИСТЫМ ЦВЕТАМ Без СЕРЫХ АРТЕФАКТОВ
     private void convertToNumberColoringFromBitmap(Bitmap bmp) {
         int w = bmp.getWidth();
         int h = bmp.getHeight();
         int[] srcPixels = new int[w * h];
         bmp.getPixels(srcPixels, 0, w, 0, 0, w, h);
 
-        int[] gridRawColors = new int[gridSize * gridSize];
+        int[] gridCleanColors = new int[gridSize * gridSize];
 
         for (int r = 0; r < gridSize; r++) {
             for (int c = 0; c < gridSize; c++) {
@@ -617,49 +617,52 @@ public class MainActivity extends Activity {
                 int p = srcPixels[srcY * w + srcX];
                 int red = Color.red(p), green = Color.green(p), blue = Color.blue(p);
 
-                // Если цвет слишком близкий к светло-серому или белому фону (почти фоновая сетка), делаем его прозрачным
-                if (Color.alpha(p) < 30 || (red > 215 && green > 215 && blue > 215)) {
-                    gridRawColors[r * gridSize + c] = Color.TRANSPARENT;
+                // Отсечение размытого фона и фоновой сетки
+                if (Color.alpha(p) < 50 || (red > 200 && green > 200 && blue > 200)) {
+                    gridCleanColors[r * gridSize + c] = Color.TRANSPARENT;
+                } else if (red < 90 && green < 90 && blue < 90) {
+                    // Все темные/полупрозрачные края схлопываем в единый четкий Черный Контур
+                    gridCleanColors[r * gridSize + c] = Color.parseColor("#212121");
                 } else {
-                    gridRawColors[r * gridSize + c] = Color.rgb(red, green, blue);
+                    gridCleanColors[r * gridSize + c] = Color.rgb(red, green, blue);
                 }
             }
         }
 
-        // Группировка основных цветов без дубликатов
-        List<Integer> mainColors = new ArrayList<>();
-        for (int c : gridRawColors) {
+        // Фильтрация до нескольких основных уникальных цветов
+        List<Integer> cleanPalette = new ArrayList<>();
+        for (int c : gridCleanColors) {
             if (c == Color.TRANSPARENT) continue;
 
             int bestMatch = -1;
-            for (int i = 0; i < mainColors.size(); i++) {
-                int mc = mainColors.get(i);
+            for (int i = 0; i < cleanPalette.size(); i++) {
+                int mc = cleanPalette.get(i);
                 int dr = Color.red(mc) - Color.red(c);
                 int dg = Color.green(mc) - Color.green(c);
                 int db = Color.blue(mc) - Color.blue(c);
-                if ((dr * dr + dg * dg + db * db) < 2500) {
+                if ((dr * dr + dg * dg + db * db) < 4500) {
                     bestMatch = i;
                     break;
                 }
             }
 
-            if (bestMatch == -1 && mainColors.size() < 10) {
-                mainColors.add(c);
+            if (bestMatch == -1 && cleanPalette.size() < 8) {
+                cleanPalette.add(c);
             }
         }
 
-        if (mainColors.isEmpty()) {
-            mainColors.add(Color.parseColor("#212121"));
+        if (cleanPalette.isEmpty()) {
+            cleanPalette.add(Color.parseColor("#212121"));
         }
 
-        numberColors = new int[mainColors.size()];
-        for (int i = 0; i < mainColors.size(); i++) {
-            numberColors[i] = mainColors.get(i);
+        numberColors = new int[cleanPalette.size()];
+        for (int i = 0; i < cleanPalette.size(); i++) {
+            numberColors[i] = cleanPalette.get(i);
         }
 
         numberMap = new int[gridSize * gridSize];
-        for (int i = 0; i < gridRawColors.length; i++) {
-            int c = gridRawColors[i];
+        for (int i = 0; i < gridCleanColors.length; i++) {
+            int c = gridCleanColors[i];
             if (c == Color.TRANSPARENT) {
                 numberMap[i] = 0;
             } else {
@@ -839,6 +842,7 @@ public class MainActivity extends Activity {
             scaleDetector = new ScaleGestureDetector(context, new ScaleListener());
             paint = new Paint();
             paint.setAntiAlias(false);
+            paint.setFilterBitmap(false); // Отключаем билинейное сглаживание для четких пикселей!
         }
 
         @Override
@@ -1011,11 +1015,12 @@ public class MainActivity extends Activity {
             paint.setColor(Color.parseColor("#FFFDF9"));
             canvas.drawRect(0, 0, viewSize, viewSize, paint);
 
-            // Отрисовка полупрозрачного референса
+            // Отрисовка четкого пиксельного референса без мыла
             if (showReference && referenceBitmap != null) {
-                Paint alphaPaint = new Paint();
-                alphaPaint.setAlpha(100);
-                canvas.drawBitmap(referenceBitmap, null, new RectF(0, 0, viewSize, viewSize), alphaPaint);
+                Paint refPaint = new Paint();
+                refPaint.setAlpha(90);
+                refPaint.setFilterBitmap(false);
+                canvas.drawBitmap(referenceBitmap, null, new RectF(0, 0, viewSize, viewSize), refPaint);
             }
 
             if (isFreeDrawMode) {
@@ -1049,8 +1054,7 @@ public class MainActivity extends Activity {
                         
                         paint.setStyle(Paint.Style.FILL);
                         if (numberMode && pixels[idx] == Color.WHITE) {
-                            // Прозрачный слой для пропускания полупрозрачного референса
-                            paint.setColor(Color.argb(0, 255, 255, 255));
+                            paint.setColor(Color.TRANSPARENT);
                         } else {
                             paint.setColor(pColor);
                         }
