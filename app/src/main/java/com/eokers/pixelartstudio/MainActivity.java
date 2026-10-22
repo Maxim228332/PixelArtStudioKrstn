@@ -1074,7 +1074,7 @@ public class MainActivity extends Activity {
                                 cacheCanvas.drawRect(rect, paint);
                             }
 
-                            // Оригинальный точный дизайн и положение цифр
+                            // Первоначальный оригинальный стиль цифр
                             if (numberMode && numberMap.length > idx && numberMap[idx] > 0 && pixels[idx] == Color.WHITE) {
                                 if (scaledCellSize > 3.5f) {
                                     numPaint.setAntiAlias(true);
