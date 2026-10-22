@@ -586,11 +586,11 @@ public class MainActivity extends Activity {
             try (InputStream stream = getContentResolver().openInputStream(data.getData())) {
                 Bitmap loaded = BitmapFactory.decodeStream(stream);
                 if (loaded != null) {
-                    referenceBitmap = loaded;
-                    convertToNumberColoringFromBitmap(loaded);
+                    referenceBitmap = Bitmap.createScaledBitmap(loaded, gridSize, gridSize, false);
+                    convertToNumberColoringFromBitmap(referenceBitmap);
                     showReference = true;
                     if (pixelCanvas != null) pixelCanvas.invalidate();
-                    toast("Картинка успешно переведена в чистую раскраску!");
+                    toast("Картинка переведена в раскраску!");
                 }
             } catch (Exception e) {
                 toast("Ошибка чтения файла");
@@ -598,7 +598,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    // НОВЫЙ МОЩНЫЙ АЛГОРИТМ КВАНТОВАНИЯ ЦВЕТОВ БЕЗ МУСОРА И МУАРА
+    // ИСПРАВЛЕННЫЙ АЛГОРИТМ: ИГНОРИРУЕТ ВНЕШНИЙ СЕРЫЙ/БЕЛЫЙ ФОН
     private void convertToNumberColoringFromBitmap(Bitmap bmp) {
         int w = bmp.getWidth();
         int h = bmp.getHeight();
@@ -607,7 +607,6 @@ public class MainActivity extends Activity {
 
         int[] gridRawColors = new int[gridSize * gridSize];
 
-        // Точный расчет без смазывания
         for (int r = 0; r < gridSize; r++) {
             for (int c = 0; c < gridSize; c++) {
                 int srcX = (int) ((c + 0.5f) * w / gridSize);
@@ -616,10 +615,10 @@ public class MainActivity extends Activity {
                 srcY = Math.min(srcY, h - 1);
 
                 int p = srcPixels[srcY * w + srcX];
-                
-                // Пропускаем полностью прозрачные и слишком белые фоновые пиксели
                 int red = Color.red(p), green = Color.green(p), blue = Color.blue(p);
-                if (Color.alpha(p) < 30 || (red > 238 && green > 238 && blue > 238)) {
+
+                // Если цвет слишком близкий к светло-серому или белому фону (почти фоновая сетка), делаем его прозрачным
+                if (Color.alpha(p) < 30 || (red > 215 && green > 215 && blue > 215)) {
                     gridRawColors[r * gridSize + c] = Color.TRANSPARENT;
                 } else {
                     gridRawColors[r * gridSize + c] = Color.rgb(red, green, blue);
@@ -627,7 +626,7 @@ public class MainActivity extends Activity {
             }
         }
 
-        // Группировка цветов до максимум 8 чистых оттенков
+        // Группировка основных цветов без дубликатов
         List<Integer> mainColors = new ArrayList<>();
         for (int c : gridRawColors) {
             if (c == Color.TRANSPARENT) continue;
@@ -638,17 +637,14 @@ public class MainActivity extends Activity {
                 int dr = Color.red(mc) - Color.red(c);
                 int dg = Color.green(mc) - Color.green(c);
                 int db = Color.blue(mc) - Color.blue(c);
-                // Порог группировки схожих тонов (дистанция 3500)
-                if ((dr * dr + dg * dg + db * db) < 3500) {
+                if ((dr * dr + dg * dg + db * db) < 2500) {
                     bestMatch = i;
                     break;
                 }
             }
 
-            if (bestMatch == -1) {
-                if (mainColors.size() < 8) {
-                    mainColors.add(c);
-                }
+            if (bestMatch == -1 && mainColors.size() < 10) {
+                mainColors.add(c);
             }
         }
 
@@ -1015,10 +1011,10 @@ public class MainActivity extends Activity {
             paint.setColor(Color.parseColor("#FFFDF9"));
             canvas.drawRect(0, 0, viewSize, viewSize, paint);
 
-            // Четкий рендер референса
+            // Отрисовка полупрозрачного референса
             if (showReference && referenceBitmap != null) {
                 Paint alphaPaint = new Paint();
-                alphaPaint.setAlpha(110);
+                alphaPaint.setAlpha(100);
                 canvas.drawBitmap(referenceBitmap, null, new RectF(0, 0, viewSize, viewSize), alphaPaint);
             }
 
@@ -1053,7 +1049,8 @@ public class MainActivity extends Activity {
                         
                         paint.setStyle(Paint.Style.FILL);
                         if (numberMode && pixels[idx] == Color.WHITE) {
-                            paint.setColor(Color.argb(120, 255, 253, 249));
+                            // Прозрачный слой для пропускания полупрозрачного референса
+                            paint.setColor(Color.argb(0, 255, 255, 255));
                         } else {
                             paint.setColor(pColor);
                         }
