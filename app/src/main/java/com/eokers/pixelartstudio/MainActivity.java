@@ -1040,6 +1040,10 @@ public class MainActivity extends Activity {
                     }
                 } else {
                     Paint numPaint = new Paint();
+                    numPaint.setAntiAlias(true);
+                    numPaint.setColor(Color.parseColor("#AD1457"));
+                    numPaint.setTextAlign(Paint.Align.CENTER);
+                    numPaint.setTypeface(android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD));
 
                     // Viewport-оптимизация: рендерим только видимую область
                     float visibleLeft = -panX / scaleFactor;
@@ -1074,14 +1078,13 @@ public class MainActivity extends Activity {
                                 cacheCanvas.drawRect(rect, paint);
                             }
 
-                            // Первоначальный оригинальный стиль цифр
+                            // Красивый сбалансированный дизайн цифр по центру ячейки
                             if (numberMode && numberMap.length > idx && numberMap[idx] > 0 && pixels[idx] == Color.WHITE) {
                                 if (scaledCellSize > 3.5f) {
-                                    numPaint.setAntiAlias(true);
-                                    numPaint.setColor(Color.parseColor("#AD1457"));
-                                    numPaint.setTextSize(cellSize * 0.45f);
-                                    cacheCanvas.drawText(String.valueOf(numberMap[idx]), left + cellSize * 0.25f, top + cellSize * 0.7f, numPaint);
-                                    numPaint.setAntiAlias(false);
+                                    numPaint.setTextSize(cellSize * 0.5f);
+                                    Paint.FontMetrics fm = numPaint.getFontMetrics();
+                                    float baseline = (top + cellSize / 2f) - (fm.ascent + fm.descent) / 2f;
+                                    cacheCanvas.drawText(String.valueOf(numberMap[idx]), left + cellSize / 2f, baseline, numPaint);
                                 }
                             }
 
