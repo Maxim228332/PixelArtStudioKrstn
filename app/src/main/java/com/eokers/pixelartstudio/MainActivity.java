@@ -586,11 +586,11 @@ public class MainActivity extends Activity {
             try (InputStream stream = getContentResolver().openInputStream(data.getData())) {
                 Bitmap loaded = BitmapFactory.decodeStream(stream);
                 if (loaded != null) {
-                    referenceBitmap = Bitmap.createScaledBitmap(loaded, gridSize, gridSize, false);
-                    convertToNumberColoringFromBitmap(referenceBitmap);
+                    referenceBitmap = loaded;
+                    convertToNumberColoringFromBitmap(loaded);
                     showReference = true;
                     if (pixelCanvas != null) pixelCanvas.invalidate();
-                    toast("Фото успешно загружено и переведено в раскраску!");
+                    toast("Картинка успешно переведена в чистую раскраску!");
                 }
             } catch (Exception e) {
                 toast("Ошибка чтения файла");
@@ -598,71 +598,92 @@ public class MainActivity extends Activity {
         }
     }
 
+    // НОВЫЙ МОЩНЫЙ АЛГОРИТМ КВАНТОВАНИЯ ЦВЕТОВ БЕЗ МУСОРА И МУАРА
     private void convertToNumberColoringFromBitmap(Bitmap bmp) {
-        List<Integer> colors = new ArrayList<>();
         int w = bmp.getWidth();
         int h = bmp.getHeight();
-        int[] bmpPixels = new int[w * h];
-        bmp.getPixels(bmpPixels, 0, w, 0, 0, w, h);
+        int[] srcPixels = new int[w * h];
+        bmp.getPixels(srcPixels, 0, w, 0, 0, w, h);
 
-        int[] tempMap = new int[gridSize * gridSize];
+        int[] gridRawColors = new int[gridSize * gridSize];
 
+        // Точный расчет без смазывания
         for (int r = 0; r < gridSize; r++) {
             for (int c = 0; c < gridSize; c++) {
-                int srcX = c * w / gridSize;
-                int srcY = r * h / gridSize;
-                int p = bmpPixels[srcY * w + srcX];
+                int srcX = (int) ((c + 0.5f) * w / gridSize);
+                int srcY = (int) ((r + 0.5f) * h / gridSize);
+                srcX = Math.min(srcX, w - 1);
+                srcY = Math.min(srcY, h - 1);
 
-                if (Color.alpha(p) > 20) {
-                    int matchedIndex = -1;
-                    
-                    for (int i = 0; i < colors.size(); i++) {
-                        int existingColor = colors.get(i);
-                        int dr = Color.red(existingColor) - Color.red(p);
-                        int dg = Color.green(existingColor) - Color.green(p);
-                        int db = Color.blue(existingColor) - Color.blue(p);
-                        if ((dr * dr + dg * dg + db * db) < 1200) {
-                            matchedIndex = i;
-                            break;
-                        }
-                    }
-
-                    if (matchedIndex == -1) {
-                        if (colors.size() < 16) {
-                            colors.add(p);
-                            matchedIndex = colors.size() - 1;
-                        } else {
-                            int minDist = Integer.MAX_VALUE;
-                            for (int i = 0; i < colors.size(); i++) {
-                                int ec = colors.get(i);
-                                int dr = Color.red(ec) - Color.red(p);
-                                int dg = Color.green(ec) - Color.green(p);
-                                int db = Color.blue(ec) - Color.blue(p);
-                                int dist = dr * dr + dg * dg + db * db;
-                                if (dist < minDist) {
-                                    minDist = dist;
-                                    matchedIndex = i;
-                                }
-                            }
-                        }
-                    }
-                    tempMap[r * gridSize + c] = matchedIndex + 1;
+                int p = srcPixels[srcY * w + srcX];
+                
+                // Пропускаем полностью прозрачные и слишком белые фоновые пиксели
+                int red = Color.red(p), green = Color.green(p), blue = Color.blue(p);
+                if (Color.alpha(p) < 30 || (red > 238 && green > 238 && blue > 238)) {
+                    gridRawColors[r * gridSize + c] = Color.TRANSPARENT;
                 } else {
-                    tempMap[r * gridSize + c] = 0;
+                    gridRawColors[r * gridSize + c] = Color.rgb(red, green, blue);
                 }
             }
         }
 
-        if (colors.isEmpty()) {
-            colors.add(Color.parseColor("#E91E63"));
+        // Группировка цветов до максимум 8 чистых оттенков
+        List<Integer> mainColors = new ArrayList<>();
+        for (int c : gridRawColors) {
+            if (c == Color.TRANSPARENT) continue;
+
+            int bestMatch = -1;
+            for (int i = 0; i < mainColors.size(); i++) {
+                int mc = mainColors.get(i);
+                int dr = Color.red(mc) - Color.red(c);
+                int dg = Color.green(mc) - Color.green(c);
+                int db = Color.blue(mc) - Color.blue(c);
+                // Порог группировки схожих тонов (дистанция 3500)
+                if ((dr * dr + dg * dg + db * db) < 3500) {
+                    bestMatch = i;
+                    break;
+                }
+            }
+
+            if (bestMatch == -1) {
+                if (mainColors.size() < 8) {
+                    mainColors.add(c);
+                }
+            }
         }
 
-        numberColors = new int[colors.size()];
-        for (int i = 0; i < colors.size(); i++) {
-            numberColors[i] = colors.get(i);
+        if (mainColors.isEmpty()) {
+            mainColors.add(Color.parseColor("#212121"));
         }
 
-        numberMap = tempMap;
+        numberColors = new int[mainColors.size()];
+        for (int i = 0; i < mainColors.size(); i++) {
+            numberColors[i] = mainColors.get(i);
+        }
+
+        numberMap = new int[gridSize * gridSize];
+        for (int i = 0; i < gridRawColors.length; i++) {
+            int c = gridRawColors[i];
+            if (c == Color.TRANSPARENT) {
+                numberMap[i] = 0;
+            } else {
+                int nearestIdx = 0;
+                int minDist = Integer.MAX_VALUE;
+                for (int k = 0; k < numberColors.length; k++) {
+                    int nc = numberColors[k];
+                    int dr = Color.red(nc) - Color.red(c);
+                    int dg = Color.green(nc) - Color.green(c);
+                    int db = Color.blue(nc) - Color.blue(c);
+                    int dist = dr * dr + dg * dg + db * db;
+                    if (dist < minDist) {
+                        minDist = dist;
+                        nearestIdx = k;
+                    }
+                }
+                numberMap[i] = nearestIdx + 1;
+            }
+        }
+
         numberMode = true;
         isFreeDrawMode = false;
         currentColor = numberColors[0];
@@ -994,10 +1015,10 @@ public class MainActivity extends Activity {
             paint.setColor(Color.parseColor("#FFFDF9"));
             canvas.drawRect(0, 0, viewSize, viewSize, paint);
 
-            // Рендер полупрозрачного референса под сеткой (альфа 100)
+            // Четкий рендер референса
             if (showReference && referenceBitmap != null) {
                 Paint alphaPaint = new Paint();
-                alphaPaint.setAlpha(100);
+                alphaPaint.setAlpha(110);
                 canvas.drawBitmap(referenceBitmap, null, new RectF(0, 0, viewSize, viewSize), alphaPaint);
             }
 
@@ -1032,7 +1053,7 @@ public class MainActivity extends Activity {
                         
                         paint.setStyle(Paint.Style.FILL);
                         if (numberMode && pixels[idx] == Color.WHITE) {
-                            paint.setColor(Color.argb(140, 255, 253, 249));
+                            paint.setColor(Color.argb(120, 255, 253, 249));
                         } else {
                             paint.setColor(pColor);
                         }
