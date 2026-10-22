@@ -637,7 +637,8 @@ public class MainActivity extends Activity {
                 int drBg = Color.red(topLeftColor) - red;
                 int dgBg = Color.green(topLeftColor) - green;
                 int dbBg = Color.blue(topLeftColor) - blue;
-                boolean isBackground = (drBg * drBg + dgBg * dg + dbBg * db < 1500);
+                // Исправлено: теперь используются переменные dgBg и dbBg вместо несуществующих dg и db
+                boolean isBackground = (drBg * drBg + dgBg * dgBg + dbBg * dbBg < 1500);
 
                 if (alpha < 40 || isBackground) {
                     gridCleanColors[r * gridSize + c] = Color.TRANSPARENT;
