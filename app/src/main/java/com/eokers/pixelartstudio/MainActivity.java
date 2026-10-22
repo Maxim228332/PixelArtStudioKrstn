@@ -140,11 +140,9 @@ public class MainActivity extends Activity {
     private void buildUi() {
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        // Уютный пастельно-кремовый фон приложения вместо резких цветов
         root.setBackgroundColor(Color.parseColor("#FFFDF9"));
         root.setPadding(dp(8), dp(4), dp(8), dp(4));
 
-        // Шапка приложения
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
         header.setOrientation(LinearLayout.HORIZONTAL);
@@ -600,6 +598,7 @@ public class MainActivity extends Activity {
         }
     }
 
+    // ИСПРАВЛЕННАЯ СИСТЕМА КОНВЕРТАЦИИ С СТРОГИМ 1-К-1 СООТВЕТСТВИЕМ ЦВЕТОВ И НОМЕРОВ
     private void convertToNumberColoringFromBitmap(Bitmap bmp) {
         List<Integer> colors = new ArrayList<>();
         int w = bmp.getWidth();
@@ -607,34 +606,64 @@ public class MainActivity extends Activity {
         int[] bmpPixels = new int[w * h];
         bmp.getPixels(bmpPixels, 0, w, 0, 0, w, h);
 
-        numberMap = new int[gridSize * gridSize];
+        int[] tempMap = new int[gridSize * gridSize];
+
         for (int r = 0; r < gridSize; r++) {
             for (int c = 0; c < gridSize; c++) {
                 int srcX = c * w / gridSize;
                 int srcY = r * h / gridSize;
                 int p = bmpPixels[srcY * w + srcX];
 
-                if (Color.alpha(p) > 10 && p != Color.WHITE) {
-                    int existingIdx = colors.indexOf(p);
-                    if (existingIdx == -1) {
-                        if (colors.size() < 16) {
-                            colors.add(p);
-                            existingIdx = colors.size() - 1;
-                        } else {
-                            existingIdx = 0; 
+                if (Color.alpha(p) > 20 && !(Color.red(p) > 245 && Color.green(p) > 245 && Color.blue(p) > 245)) {
+                    int matchedIndex = -1;
+                    
+                    for (int i = 0; i < colors.size(); i++) {
+                        int existingColor = colors.get(i);
+                        int dr = Color.red(existingColor) - Color.red(p);
+                        int dg = Color.green(existingColor) - Color.green(p);
+                        int db = Color.blue(existingColor) - Color.blue(p);
+                        if ((dr * dr + dg * dg + db * db) < 1200) {
+                            matchedIndex = i;
+                            break;
                         }
                     }
-                    numberMap[r * gridSize + c] = existingIdx + 1;
+
+                    if (matchedIndex == -1) {
+                        if (colors.size() < 16) {
+                            colors.add(p);
+                            matchedIndex = colors.size() - 1;
+                        } else {
+                            int minDist = Integer.MAX_VALUE;
+                            for (int i = 0; i < colors.size(); i++) {
+                                int ec = colors.get(i);
+                                int dr = Color.red(ec) - Color.red(p);
+                                int dg = Color.green(ec) - Color.green(p);
+                                int db = Color.blue(ec) - Color.blue(p);
+                                int dist = dr * dr + dg * dg + db * db;
+                                if (dist < minDist) {
+                                    minDist = dist;
+                                    matchedIndex = i;
+                                }
+                            }
+                        }
+                    }
+                    tempMap[r * gridSize + c] = matchedIndex + 1;
                 } else {
-                    numberMap[r * gridSize + c] = 0;
+                    tempMap[r * gridSize + c] = 0;
                 }
             }
         }
 
-        if (colors.isEmpty()) colors.add(Color.parseColor("#E91E63"));
-        numberColors = new int[colors.size()];
-        for (int i = 0; i < colors.size(); i++) numberColors[i] = colors.get(i);
+        if (colors.isEmpty()) {
+            colors.add(Color.parseColor("#E91E63"));
+        }
 
+        numberColors = new int[colors.size()];
+        for (int i = 0; i < colors.size(); i++) {
+            numberColors[i] = colors.get(i);
+        }
+
+        numberMap = tempMap;
         numberMode = true;
         isFreeDrawMode = false;
         currentColor = numberColors[0];
@@ -711,7 +740,6 @@ public class MainActivity extends Activity {
         Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
     }
 
-    // Уютная анимированная Муся (Pusheen-стиль с узорами)
     public static class PixelCatView extends View {
         private boolean winking = false;
         private Paint p = new Paint();
