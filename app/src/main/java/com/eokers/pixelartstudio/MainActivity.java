@@ -1014,7 +1014,7 @@ public class MainActivity extends Activity {
         private void updateCacheIfNeeded(int viewSize) {
             if (canvasBitmap == null || canvasBitmap.getWidth() != viewSize || isCacheDirty) {
                 if (canvasBitmap == null || canvasBitmap.getWidth() != viewSize) {
-                    canvasBitmap = Bitmap.createBitmap(viewSize, viewSize, Bitmap.Config.RGB_565);
+                    canvasBitmap = Bitmap.createBitmap(viewSize, viewSize, Bitmap.Config.ARGB_8888);
                     cacheCanvas = new Canvas(canvasBitmap);
                 }
 
@@ -1040,34 +1040,53 @@ public class MainActivity extends Activity {
                     }
                 } else {
                     Paint numPaint = new Paint();
-                    numPaint.setAntiAlias(false);
+                    numPaint.setAntiAlias(true);
                     numPaint.setColor(Color.parseColor("#AD1457"));
+                    numPaint.setTextAlign(Paint.Align.CENTER);
+                    numPaint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
 
-                    for (int r = 0; r < gridSize; r++) {
-                        for (int c = 0; c < gridSize; c++) {
+                    // Оптимизация Viewport: отрисовываем только видимые ячейки для идеальной скорости
+                    float visibleLeft = -panX / scaleFactor;
+                    float visibleTop = -panY / scaleFactor;
+                    float visibleRight = visibleLeft + viewSize / scaleFactor;
+                    float visibleBottom = visibleTop + viewSize / scaleFactor;
+
+                    int startCol = Math.max(0, (int) (visibleLeft / cellSize));
+                    int endCol = Math.min(gridSize - 1, (int) (visibleRight / cellSize) + 1);
+                    int startRow = Math.max(0, (int) (visibleTop / cellSize));
+                    int endRow = Math.min(gridSize - 1, (int) (visibleBottom / cellSize) + 1);
+
+                    float scaledCellSize = cellSize * scaleFactor;
+
+                    for (int r = startRow; r <= endRow; r++) {
+                        for (int c = startCol; c <= endCol; c++) {
                             int idx = r * gridSize + c;
                             float left = c * cellSize;
                             float top = r * cellSize;
-                            
+
                             int pColor = pixels[idx] == 0 ? Color.TRANSPARENT : pixels[idx];
 
                             if (numberMode && pixels[idx] == Color.WHITE) {
-                                // Пропускаем
+                                // Пропускаем закрашивание белым
                             } else if (pColor != Color.TRANSPARENT) {
                                 paint.setStyle(Paint.Style.FILL);
                                 paint.setColor(pColor);
                                 cacheCanvas.drawRect(left, top, left + cellSize + 0.5f, top + cellSize + 0.5f, paint);
                             }
 
-                            // Умный показ цифр даже на ультра-сетках (128x128)
-                            if (numberMode && numberMap.length > idx && numberMap[idx] > 0 && pixels[idx] == Color.WHITE && cellSize > 3.5f) {
-                                numPaint.setTextSize(Math.max(8f, cellSize * 0.55f));
-                                cacheCanvas.drawText(String.valueOf(numberMap[idx]), left + cellSize * 0.20f, top + cellSize * 0.75f, numPaint);
+                            // Красивые классические шрифты цифр
+                            if (numberMode && numberMap.length > idx && numberMap[idx] > 0 && pixels[idx] == Color.WHITE) {
+                                if (scaledCellSize > 8f) { // Показывать цифры только если размер на экране позволяет их прочесть
+                                    numPaint.setTextSize(cellSize * 0.5f);
+                                    Paint.FontMetrics fm = numPaint.getFontMetrics();
+                                    float baseline = (top + cellSize / 2f) - (fm.ascent + fm.descent) / 2f;
+                                    cacheCanvas.drawText(String.valueOf(numberMap[idx]), left + cellSize / 2f, baseline, numPaint);
+                                }
                             }
 
-                            if (showGrid && cellSize > 2f) {
+                            if (showGrid && scaledCellSize > 3f) {
                                 paint.setStyle(Paint.Style.STROKE);
-                                paint.setColor(Color.parseColor("#F8BBD0"));
+                                paint.setColor(Color.parseColor("#10F8BBD0"));
                                 paint.setStrokeWidth(1f);
                                 cacheCanvas.drawRect(left, top, left + cellSize + 0.5f, top + cellSize + 0.5f, paint);
                             }
