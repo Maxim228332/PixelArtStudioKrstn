@@ -1,4 +1,3 @@
-
 package com.eokers.pixelartstudio;
 
 import android.app.Activity;
@@ -597,8 +596,8 @@ public class MainActivity extends Activity {
 
     private void showImportStyleDialog(Bitmap loaded) {
         String[] options = {
-            "🎨 Мультяшный / Аниме (чистые яркие цвета, без грязи и теней)",
-            "🖼 Художественный / Арт с тенями (детальный, с полутонами и объемом)"
+            "🎨 Мультяшный / Пиксель-арт (чистые цвета из картинки)",
+            "🖼 Художественный / Арт с тенями (детальный, с полутонами)"
         };
         new AlertDialog.Builder(this)
                 .setTitle("Выберите стиль раскраски")
@@ -606,7 +605,7 @@ public class MainActivity extends Activity {
                     referenceBitmap = Bitmap.createScaledBitmap(loaded, gridSize, gridSize, false);
                     if (which == 0) {
                         convertToNumberColoringCartoon(referenceBitmap);
-                        toast("Мультяшная раскраска создана!");
+                        toast("Пиксельная раскраска создана!");
                     } else {
                         convertToNumberColoringDetailed(referenceBitmap);
                         toast("Детальная раскраска с тенями создана!");
@@ -617,6 +616,7 @@ public class MainActivity extends Activity {
                 .show();
     }
 
+    // ИСПРАВЛЕННЫЙ МЕТОД: ТОЧНОЕ СЧИТЫВАНИЕ РЕАЛЬНЫХ ЦВЕТОВ ПИКСЕЛЬ-АРТА БЕЗ ИСКАЖЕНИЙ
     private void convertToNumberColoringCartoon(Bitmap bmp) {
         int w = bmp.getWidth();
         int h = bmp.getHeight();
@@ -624,6 +624,7 @@ public class MainActivity extends Activity {
         bmp.getPixels(srcPixels, 0, w, 0, 0, w, h);
 
         int[] gridCleanColors = new int[gridSize * gridSize];
+        int topLeftColor = srcPixels[0]; // Определяем цвет фона по углу
 
         for (int r = 0; r < gridSize; r++) {
             for (int c = 0; c < gridSize; c++) {
@@ -634,33 +635,44 @@ public class MainActivity extends Activity {
                 int alpha = Color.alpha(p);
                 int red = Color.red(p), green = Color.green(p), blue = Color.blue(p);
 
-                if (alpha < 40 || (red > 220 && green > 220 && blue > 220)) {
+                // Проверка на совпадение с фоном
+                int drBg = Color.red(topLeftColor) - red;
+                int dgBg = Color.green(topLeftColor) - green;
+                int dbBg = Color.blue(topLeftColor) - blue;
+                boolean isBackground = (drBg * drBg + dgBg * dg + dbBg * db < 1500);
+
+                if (alpha < 40 || isBackground) {
                     gridCleanColors[r * gridSize + c] = Color.TRANSPARENT;
-                } else if (red < 80 && green < 80 && blue < 80) {
-                    gridCleanColors[r * gridSize + c] = Color.parseColor("#1A1A1A");
-                } else if (red > 150 && green > 100 && blue < 140 && red >= green) {
-                    gridCleanColors[r * gridSize + c] = Color.parseColor("#FFD54F");
-                } else if (red > 120 && green < 140 && blue < 140) {
-                    gridCleanColors[r * gridSize + c] = Color.parseColor("#EF5350");
                 } else {
-                    gridCleanColors[r * gridSize + c] = Color.rgb(
-                            (red > 128) ? 230 : 50,
-                            (green > 128) ? 200 : 50,
-                            (blue > 128) ? 200 : 50
-                    );
+                    // Сохраняем исходный цвет пикселя как есть
+                    gridCleanColors[r * gridSize + c] = Color.rgb(red, green, blue);
                 }
             }
         }
 
+        // Собираем уникальные цвета из самой картинки
         List<Integer> cleanPalette = new ArrayList<>();
         for (int c : gridCleanColors) {
             if (c == Color.TRANSPARENT) continue;
-            if (!cleanPalette.contains(c) && cleanPalette.size() < 5) {
+
+            int bestMatch = -1;
+            for (int i = 0; i < cleanPalette.size(); i++) {
+                int mc = cleanPalette.get(i);
+                int dr = Color.red(mc) - Color.red(c);
+                int dg = Color.green(mc) - Color.green(c);
+                int db = Color.blue(mc) - Color.blue(c);
+                if ((dr * dr + dg * dg + db * db) < 1000) {
+                    bestMatch = i;
+                    break;
+                }
+            }
+
+            if (bestMatch == -1 && cleanPalette.size() < 12) {
                 cleanPalette.add(c);
             }
         }
 
-        if (cleanPalette.isEmpty()) cleanPalette.add(Color.parseColor("#1A1A1A"));
+        if (cleanPalette.isEmpty()) cleanPalette.add(Color.parseColor("#212121"));
 
         numberColors = new int[cleanPalette.size()];
         for (int i = 0; i < cleanPalette.size(); i++) numberColors[i] = cleanPalette.get(i);
