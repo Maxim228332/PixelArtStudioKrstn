@@ -2,6 +2,7 @@ package com.eokers.pixelartstudio;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -13,9 +14,12 @@ import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.MediaStore;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -29,7 +33,10 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -580,8 +587,82 @@ public class MainActivity extends Activity {
         startActivityForResult(intent, REQ_OPEN_IMAGE);
     }
 
+    // РЕАЛЬНЫЙ ЭКСПОРТ И СОХРАНЕНИЕ PNG В ГАЛЕРЕЮ ТЕЛЕФОНА
     private void savePng() {
-        toast("Экспорт PNG выполнен успешно!");
+        try {
+            int exportSize = 1024; // Высокое разрешение экспортируемой картинки
+            Bitmap exportBmp = Bitmap.createBitmap(exportSize, exportSize, Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(exportBmp);
+            float cellSize = (float) exportSize / gridSize;
+
+            // Заливка фоном
+            Paint paint = new Paint();
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Color.parseColor("#FFFDF9"));
+            canvas.drawRect(0, 0, exportSize, exportSize, paint);
+
+            if (isFreeDrawMode) {
+                for (PathElement pe : freePaths) {
+                    paint.setStyle(Paint.Style.STROKE);
+                    paint.setStrokeWidth(8f * (exportSize / 512f));
+                    paint.setStrokeCap(Paint.Cap.ROUND);
+                    paint.setStrokeJoin(Paint.Join.ROUND);
+                    paint.setAntiAlias(true);
+                    paint.setColor(pe.color);
+                    // Масштабируем пути под размер экспорта
+                    Path scaledPath = new Path(pe.path);
+                    scaledPath.transform(android.graphics.Matrix());
+                    canvas.drawPath(scaledPath, paint);
+                }
+            } else {
+                for (int r = 0; r < gridSize; r++) {
+                    for (int c = 0; c < gridSize; c++) {
+                        int idx = r * gridSize + c;
+                        int pColor = pixels[idx] == 0 ? Color.TRANSPARENT : pixels[idx];
+                        if (pColor != Color.TRANSPARENT && pColor != Color.WHITE) {
+                            paint.setColor(pColor);
+                            canvas.drawRect(c * cellSize, r * cellSize, (c + 1) * cellSize, (r + 1) * cellSize, paint);
+                        }
+                    }
+                }
+            }
+
+            // Сохранение через MediaStore в галерею
+            String fileName = "PixelArt_" + System.currentTimeMillis() + ".png";
+            OutputStream fos = null;
+            Uri imageUri = null;
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.Images.Media.DISPLAY_NAME, fileName);
+                values.put(MediaStore.Images.Media.MIME_TYPE, "image/png");
+                values.put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/PixelArtStudio");
+                imageUri = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+                if (imageUri != null) {
+                    fos = getContentResolver().openOutputStream(imageUri);
+                }
+            } else {
+                File imagesDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "PixelArtStudio");
+                if (!imagesDir.exists()) imagesDir.mkdirs();
+                File imageFile = new File(imagesDir, fileName);
+                fos = new FileOutputStream(imageFile);
+                imageUri = Uri.fromFile(imageFile);
+                // Сканируем для появления в галерее на старых версиях
+                Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, imageUri);
+                sendBroadcast(mediaScanIntent);
+            }
+
+            if (fos != null) {
+                exportBmp.compress(Bitmap.CompressFormat.PNG, 100, fos);
+                fos.flush();
+                fos.close();
+                toast("💾 Рисунок сохранен в галерею!");
+            } else {
+                toast("Ошибка сохранения файла");
+            }
+        } catch (Exception e) {
+            toast("Ошибка экспорта: " + e.getMessage());
+        }
     }
 
     @Override
