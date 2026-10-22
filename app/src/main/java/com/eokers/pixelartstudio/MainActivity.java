@@ -615,7 +615,7 @@ public class MainActivity extends Activity {
                 })
                 .show();
     }
-    // ЧЕСТНОЕ СЧИТЫВАНИЕ ПАЛИТРЫ ПИКСЕЛЬ-АРТА БЕЗ ИСКАЖЕНИИЙ
+
     private void convertToNumberColoringCartoon(Bitmap bmp) {
         int w = bmp.getWidth();
         int h = bmp.getHeight();
@@ -623,7 +623,7 @@ public class MainActivity extends Activity {
         bmp.getPixels(srcPixels, 0, w, 0, 0, w, h);
 
         int[] gridCleanColors = new int[gridSize * gridSize];
-        int topLeftColor = srcPixels[0]; // Автоопределение фона по углу
+        int topLeftColor = srcPixels[0];
 
         for (int r = 0; r < gridSize; r++) {
             for (int c = 0; c < gridSize; c++) {
@@ -1110,7 +1110,6 @@ public class MainActivity extends Activity {
             paint.setColor(Color.parseColor("#FFFDF9"));
             canvas.drawRect(0, 0, viewSize, viewSize, paint);
 
-            // Четкий пиксельный референс под сеткой без мыла
             if (showReference && referenceBitmap != null) {
                 Paint refPaint = new Paint();
                 refPaint.setAlpha(110);
