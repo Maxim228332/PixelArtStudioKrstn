@@ -596,8 +596,8 @@ public class MainActivity extends Activity {
 
     private void showImportStyleDialog(Bitmap loaded) {
         String[] options = {
-            "🎨 Мультяшный / Пиксель-арт (чистые цвета из картинки)",
-            "🖼 Художественный / Арт с тенями (детальный, с полутонами)"
+            "🎨 Пиксель-арт / Мультяшный (точные цвета из картинки)",
+            "🖼 Арт с тенями / Фото (детальный, с полутонами)"
         };
         new AlertDialog.Builder(this)
                 .setTitle("Выберите стиль раскраски")
@@ -615,8 +615,7 @@ public class MainActivity extends Activity {
                 })
                 .show();
     }
-
-    // ИСПРАВЛЕННЫЙ МЕТОД: ТОЧНОЕ СЧИТЫВАНИЕ РЕАЛЬНЫХ ЦВЕТОВ ПИКСЕЛЬ-АРТА БЕЗ ИСКАЖЕНИЙ
+    // ЧЕСТНОЕ СЧИТЫВАНИЕ ПАЛИТРЫ ПИКСЕЛЬ-АРТА БЕЗ ИСКАЖЕНИИЙ
     private void convertToNumberColoringCartoon(Bitmap bmp) {
         int w = bmp.getWidth();
         int h = bmp.getHeight();
@@ -624,7 +623,7 @@ public class MainActivity extends Activity {
         bmp.getPixels(srcPixels, 0, w, 0, 0, w, h);
 
         int[] gridCleanColors = new int[gridSize * gridSize];
-        int topLeftColor = srcPixels[0]; // Определяем цвет фона по углу
+        int topLeftColor = srcPixels[0]; // Автоопределение фона по углу
 
         for (int r = 0; r < gridSize; r++) {
             for (int c = 0; c < gridSize; c++) {
@@ -635,7 +634,6 @@ public class MainActivity extends Activity {
                 int alpha = Color.alpha(p);
                 int red = Color.red(p), green = Color.green(p), blue = Color.blue(p);
 
-                // Проверка на совпадение с фоном
                 int drBg = Color.red(topLeftColor) - red;
                 int dgBg = Color.green(topLeftColor) - green;
                 int dbBg = Color.blue(topLeftColor) - blue;
@@ -644,13 +642,11 @@ public class MainActivity extends Activity {
                 if (alpha < 40 || isBackground) {
                     gridCleanColors[r * gridSize + c] = Color.TRANSPARENT;
                 } else {
-                    // Сохраняем исходный цвет пикселя как есть
                     gridCleanColors[r * gridSize + c] = Color.rgb(red, green, blue);
                 }
             }
         }
 
-        // Собираем уникальные цвета из самой картинки
         List<Integer> cleanPalette = new ArrayList<>();
         for (int c : gridCleanColors) {
             if (c == Color.TRANSPARENT) continue;
