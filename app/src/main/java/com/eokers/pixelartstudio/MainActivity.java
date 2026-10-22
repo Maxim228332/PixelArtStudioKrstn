@@ -486,6 +486,7 @@ public class MainActivity extends Activity {
         numberMap = new int[0];
         numberColors = new int[0];
         currentTool = "✏️ Карандаш";
+        referenceBitmap = null;
         showReference = false;
         refreshPalette();
         buildUi();
@@ -535,10 +536,12 @@ public class MainActivity extends Activity {
         numberMode = false;
         numberMap = new int[0];
         numberColors = new int[0];
+        referenceBitmap = null;
+        showReference = false;
         refreshPalette();
         buildUi();
         refreshStatus();
-        toast("Холст очищен");
+        toast("Холст и референс очищены");
     }
 
     private void chooseGridSize() {
@@ -551,6 +554,8 @@ public class MainActivity extends Activity {
             numberMode = false;
             numberMap = new int[0];
             numberColors = new int[0];
+            referenceBitmap = null;
+            showReference = false;
             pushUndo();
             buildUi();
             toast("Сетка: " + gridSize + "×" + gridSize);
@@ -637,7 +642,6 @@ public class MainActivity extends Activity {
                 int drBg = Color.red(topLeftColor) - red;
                 int dgBg = Color.green(topLeftColor) - green;
                 int dbBg = Color.blue(topLeftColor) - blue;
-                // Исправлено: теперь используются переменные dgBg и dbBg вместо несуществующих dg и db
                 boolean isBackground = (drBg * drBg + dgBg * dgBg + dbBg * dbBg < 1500);
 
                 if (alpha < 40 || isBackground) {
